@@ -32,15 +32,6 @@ trap on_exit EXIT
 
 # ========== Configuration ==========
 
-setup_images(){
-  
-}
-
-
-
-
-
-
 DEST_DIR="/opt"
 REPOS=(
   "https://github.com/sham00n/buster.git"
@@ -71,11 +62,10 @@ REPOS=(
   "https://github.com/GerbenJavado/LinkFinder.git"
   "https://github.com/hakluke/hakrawler.git"
   "https://github.com/danielmiessler/SecLists.git"
+  "https://github.com/HavocFramework/Havoc.git"
 )
 
-# Commands considered dependencies (package names for apt are attempted install names)
 APT_PACKAGES=(curl wget gcc make build-essential golang-go python3 python3-pip python3-venv pipx parallel jq unzip git docker.io docker-compose)
-# note: we won't try to install "golang-src" etc as package names are distro-specific
 
 # ========== Utilities ==========
 repo_name_from_url() {
@@ -102,7 +92,6 @@ check_dependencies() {
   info "Checking for system dependencies..."
   local missing=()
   for pkg in "${APT_PACKAGES[@]}"; do
-    # try to check for binary presence for common tools, else fallback to apt package name
     case "$pkg" in
       docker-compose)
         if ! command -v docker-compose &>/dev/null && ! docker compose version &>/dev/null; then
@@ -135,7 +124,6 @@ check_dependencies() {
     return 1
   }
 
-  # ensure pipx is available and on PATH
   if ! command -v pipx &>/dev/null; then
     step "Installing pipx via pip..."
     python3 -m pip install --user pipx || true
@@ -179,7 +167,6 @@ install_git_repos() {
       fi
     fi
 
-    # sane permissions
     chmod -R u+rwX,go+rX,go-w "$target" || true
   done
 }
@@ -192,7 +179,6 @@ install_go_tools() {
   fi
 
   info "Installing Go tools (go env GOPATH: $(go env GOPATH 2>/dev/null || echo 'unset'))"
-  # ensure GOPATH/bin is on PATH for immediate use
   export PATH="$(go env GOPATH 2>/dev/null)/bin:${PATH:-/usr/local/bin}"
 
   local go_tools=(
@@ -211,6 +197,7 @@ install_go_tools() {
     "github.com/ffuf/pencode/cmd/pencode@latest"
     "github.com/projectdiscovery/pdtm/cmd/pdtm@latest"
     "github.com/glitchedgitz/cook/v2/cmd/cook@latest"
+    "github.com/GoToolSharing/htb-cli@latest"
   )
 
   for tool in "${go_tools[@]}"; do
@@ -345,7 +332,6 @@ font_packages_install() {
 
 # ========== NEW: Oh My Zsh + tmux + zshrc installer ==========
 install_oh_my_zsh() {
-  # non-interactive install: prevent chsh and running zsh immediately
   if [ -d "${HOME}/.oh-my-zsh" ]; then
     info "oh-my-zsh already installed."
     return 0
@@ -358,7 +344,6 @@ install_oh_my_zsh() {
 
   step "Installing oh-my-zsh (non-interactive)"
   export RUNZSH="no" CHSH="no"
-  # prefer curl if present
   if command -v curl &>/dev/null; then
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" || {
       warn "oh-my-zsh install script failed"
@@ -375,7 +360,6 @@ install_oh_my_zsh() {
 }
 
 install_tmux_conf() {
-  # gpakosz tmux config install — idempotent if files exist
   if [ -d "${HOME}/.tmux" ] && [ -f "${HOME}/.tmux.conf" ]; then
     info "tmux config (gpakosz) appears already installed."
     return 0
@@ -576,8 +560,6 @@ main() {
   exploitdb
   install_bloodhound
   install_ronin
-
-  # new steps
   install_oh_my_zsh
   install_tmux_conf
   install_zshrc_template

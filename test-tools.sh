@@ -60,6 +60,7 @@ REPOS=(
   "https://github.com/x90skysn3k/brutespray.git"
   "https://github.com/GerbenJavado/LinkFinder.git"
   "https://github.com/hakluke/hakrawler.git"
+  
 )
 
 # Commands considered dependencies (package names for apt are attempted install names)
