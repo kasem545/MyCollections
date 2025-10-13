@@ -63,6 +63,7 @@ REPOS=(
   "https://github.com/hakluke/hakrawler.git"
   "https://github.com/danielmiessler/SecLists.git"
   "https://github.com/HavocFramework/Havoc.git"
+  "https://github.com/Greenwolf/ntlm_theft.git"
 )
 
 APT_PACKAGES=(curl wget gcc make build-essential golang-go python3 python3-pip python3-venv pipx parallel jq unzip git docker.io docker-compose)
@@ -274,6 +275,7 @@ install_bloodhound() {
   if wget -q -O "$tmp" "https://github.com/SpecterOps/bloodhound-cli/releases/latest/download/bloodhound-cli-linux-amd64.tar.gz"; then
     sudo tar -xvzf "$tmp" -C /usr/local/bin/ || warn "tar extraction warning"
     sudo chmod +x /usr/local/bin/bloodhound-cli || true
+    sudo usermod -aG bloodhound $USER || true
     success "BloodHound CLI binary installed to /usr/local/bin/"
   else
     warn "Could not download BloodHound CLI release (maybe no internet or release missing)."
@@ -355,7 +357,7 @@ install_oh_my_zsh() {
       return 1
     }
   fi
-
+  curl -fsSL https://raw.githubusercontent.com/trabdlkarim/parrot-zsh-theme/main/install.sh | bash || warn "parrot theme install failed"
   success "oh-my-zsh installed (RUNZSH=no CHSH=no)."
 }
 
@@ -415,7 +417,8 @@ export ZSH="$HOME/.oh-my-zsh"
 # load a random theme each time Oh My Zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
-ZSH_THEME="darkblood"
+#ZSH_THEME="darkblood" #Default theme
+ZSH_THEME="parrot" # Parrot theme from
 
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
