@@ -6,7 +6,7 @@ create_ctf_directories() {
     local machine_name=$1
     local base_machine_dir="$BASE_DIR/$machine_name"
 
-    dirs=("nmap" "exploits" "scripts" "loot" "writeup")
+    dirs=("nmap" "exploits" "scripts" "loot" "screenshots" "writesup")
 
     mkdir -p "$base_machine_dir"
 
