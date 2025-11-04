@@ -276,7 +276,7 @@ install_bloodhound() {
   if wget -q -O "$tmp" "https://github.com/SpecterOps/bloodhound-cli/releases/latest/download/bloodhound-cli-linux-amd64.tar.gz"; then
     sudo tar -xvzf "$tmp" -C /usr/local/bin/ || warn "tar extraction warning"
     sudo chmod +x /usr/local/bin/bloodhound-cli || true
-    sudo usermod -aG bloodhound $USER || true
+    sudo usermod -aG docker $USER || true
     success "BloodHound CLI binary installed to /usr/local/bin/"
   else
     warn "Could not download BloodHound CLI release (maybe no internet or release missing)."
@@ -358,7 +358,9 @@ install_oh_my_zsh() {
       return 1
     }
   fi
-  curl -fsSL https://raw.githubusercontent.com/trabdlkarim/parrot-zsh-theme/main/install.sh | bash || warn "parrot theme install failed"
+  git clone https://github.com/zsh-users/zsh-autosuggestions.git ${HOME}/.oh-my-zsh/plugins/zsh-autosuggestions || warn "zsh-autosuggestions install failed"
+  git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${HOME}/.oh-my-zsh/plugins/zsh-syntax-highlighting || warn "zsh-syntax-highlighting install failed"
+  curl -o ${HOME}/.oh-my-zsh/themes/parrot.zsh-theme -fsSL https://raw.githubusercontent.com/trabdlkarim/parrot-zsh-theme/refs/heads/main/parrot.zsh-theme || warn "parrot theme install failed"
   success "oh-my-zsh installed (RUNZSH=no CHSH=no)."
 }
 
@@ -481,7 +483,7 @@ ZSH_THEME="parrot" # Parrot theme from
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=()
+plugins=(zsh-autosuggestions zsh-syntax-highlighting)
 
 source $ZSH/oh-my-zsh.sh
 
