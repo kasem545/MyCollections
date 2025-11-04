@@ -66,7 +66,7 @@ REPOS=(
   "https://github.com/Greenwolf/ntlm_theft.git"
 )
 
-APT_PACKAGES=(curl wget gcc make build-essential golang-go python3 python3-pip python3-venv pipx parallel jq unzip git docker.io docker-compose cargo)
+APT_PACKAGES=(curl wget gcc make build-essential golang-go python3 python3-pip python3-venv pipx parallel jq unzip git docker.io docker-compose cargo ligolo-mp )
 
 # ========== Utilities ==========
 repo_name_from_url() {
