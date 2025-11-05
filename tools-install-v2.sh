@@ -42,7 +42,6 @@ REPOS=(
   "https://github.com/hahwul/dalfox.git"
   "https://github.com/imthaghost/goclone.git"
   "https://github.com/pemistahl/grex.git"
-  "https://github.com/HavocFramework/Havoc.git"
   "https://github.com/fortra/impacket.git"
   "https://github.com/ropnop/kerbrute.git"
   "https://github.com/deathmarine/Luyten.git"
