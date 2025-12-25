@@ -14,7 +14,7 @@ GH_API="https://api.github.com"
 GH_TOKEN="${GH_TOKEN:-}"
 
 log() { echo -e "${BLUE}[INFO]${NC} $*"; }
-debug() { ((DEBUG)) && echo -e "${YELLOW}[DEBUG]${NC} $*" >&2; }
+debug() { [[ $DEBUG -eq 1 ]] && echo -e "${YELLOW}[DEBUG]${NC} $*" >&2 || true; }
 warn() { echo -e "${YELLOW}[WARN]${NC} $*" >&2; }
 error() { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
 success() { echo -e "${GREEN}[SUCCESS]${NC} $*"; }
@@ -23,7 +23,6 @@ check_deps() {
     if command -v wget >/dev/null; then USE_CURL=0; else USE_CURL=1; fi
 }
 
-# Parse GitHub URL and enforce ref usage
 parse_github_url() {
     local url="$1"
     debug "Parsing URL: $url"
@@ -38,11 +37,9 @@ parse_github_url() {
     local ref="${BASH_REMATCH[4]}"
     local path="${BASH_REMATCH[5]}"
 
-    # Auto-correct /tree/... to /blob/ only if it's clearly a FILE
     if [[ "$type" == "tree" ]]; then
         local basename="${path##*/}"
 
-        # Common executable/script extensions in offensive tooling
         case "$basename" in
             *.exe|*.dll|*.bin|*.ps1|*.bat|*.sh|*.txt|*.xml|*.config|*.json|*.yml|*.yaml|*.zip|*.msi|*.js)
                 debug "Heuristic: '$basename' matches known file extension. Forcing 'blob' mode."
@@ -72,9 +69,9 @@ gh_api_get() {
 download_raw_file() {
     local url="$1" out="$2"
     if (( USE_CURL )); then
-        curl -fL# -o "$out" "$url" || error "Download failed"
+        curl -fL# -o "$out" "$url" || error "Download failed: $url"
     else
-        wget -c --progress=bar -O "$out" "$url" || error "Download failed"
+        wget -q -c --progress=bar -O "$out" "$url" || error "Download failed: $url"
     fi
 }
 
@@ -97,38 +94,64 @@ download_folder() {
     local owner="$1" repo="$2" ref="$3" path="$4" outdir="$5"
     local api="$GH_API/repos/$owner/$repo/contents/$path?ref=$ref"
     debug "API: $api"
+    log "Fetching contents from: $path"
 
     local res
     res=$(gh_api_get "$api") || error "API call failed (404? rate limit?)"
 
-    local files dirs
-    if command -v jq >/dev/null; then
-        files=$(echo "$res" | jq -r '.[] | select(.type=="file") | "\(.path)|\(.name)"')
-        dirs=$(echo "$res" | jq -r '.[] | select(.type=="dir") | .path')
-    else
+    if ! command -v jq >/dev/null; then
         error "Install 'jq' to download folders."
     fi
 
-    # Download files
-    while IFS='|' read -r fpath fname; do
-        [[ -z "$fpath" ]] && continue
-        local local_rel="${fpath#${path}/}"
-        local local_file="$outdir/$local_rel"
-        mkdir -p "$(dirname "$local_file")"
-        local raw="https://raw.githubusercontent.com/$owner/$repo/refs/heads/$ref/$fpath"
-        log "→ $fpath"
-        debug "Raw URL: $raw"
-        download_raw_file "$raw" "$local_file"
-    done <<< "$files"
+    # Check if response is an error message
+    if echo "$res" | jq -e '.message' >/dev/null 2>&1; then
+        local msg=$(echo "$res" | jq -r '.message')
+        error "GitHub API error: $msg"
+    fi
 
-    # Recurse into subdirs
-    while IFS= read -r d; do
-        [[ -z "$d" ]] && continue
-        local subdir="${d##*/}"
-        log "→ Entering $subdir/"
-        download_folder "$owner" "$repo" "$ref" "$d" "$outdir/$subdir"
-    done <<< "$dirs"
+    local files dirs
+    files=$(echo "$res" | jq -r '.[] | select(.type=="file") | "\(.path)|\(.name)|\(.download_url)"' 2>/dev/null || true)
+    dirs=$(echo "$res" | jq -r '.[] | select(.type=="dir") | .path' 2>/dev/null || true)
+
+    debug "Files found: $(echo "$files" | wc -l)"
+    debug "Dirs found: $(echo "$dirs" | wc -l)"
+
+    if [[ -n "$files" ]]; then
+        while IFS='|' read -r fpath fname download_url; do
+            [[ -z "$fpath" ]] && continue
+            local local_rel="${fpath#${path}/}"
+            [[ "$local_rel" == "$fpath" ]] && local_rel="$fname"
+            local local_file="$outdir/$local_rel"
+            mkdir -p "$(dirname "$local_file")"
+            
+            local raw_url="$download_url"
+            if [[ -z "$raw_url" || "$raw_url" == "null" ]]; then
+                raw_url="https://raw.githubusercontent.com/$owner/$repo/$ref/$fpath"
+            fi
+            
+            log "→ Downloading: $fname"
+            debug "  Path: $fpath"
+            debug "  URL: $raw_url"
+            debug "  Local: $local_file"
+            download_raw_file "$raw_url" "$local_file"
+        done <<< "$files"
+    else
+        debug "No files to download in this directory"
+    fi
+
+    if [[ -n "$dirs" ]]; then
+        while IFS= read -r d; do
+            [[ -z "$d" ]] && continue
+            local subdir="${d##*/}"
+            log "→ Entering directory: $subdir/"
+            mkdir -p "$outdir/$subdir"
+            download_folder "$owner" "$repo" "$ref" "$d" "$outdir/$subdir"
+        done <<< "$dirs"
+    else
+        debug "No subdirectories to process"
+    fi
 }
+
 show_help() {
     cat <<EOF
 Usage: $0 [OPTIONS] <GITHUB_URL>
@@ -138,12 +161,12 @@ Supports:
   Folder:https://github.com/user/repo/tree/master/path/dir
 
 Uses raw URLs in format:
-  https://raw.githubusercontent.com/user/repo/refs/heads/master/...
+  https://raw.githubusercontent.com/user/repo/master/...
 
 OPTIONS:
   -o, --output PATH       Output file or directory
   -c, --checksum HASH     Verify SHA256 (files only)
-  --debug                 Enable debug mode *Necessary when downloading subfolder*
+  --debug                 Enable debug mode
   -h, --help              Show help
 
 ENV:
@@ -177,8 +200,9 @@ main() {
 
     if [[ "$type" == "blob" ]]; then
         out="${out:-${path##*/}}"
-        local raw="https://raw.githubusercontent.com/$user/$repo/refs/heads/$ref/$path"
-        log "Downloading file (via refs/heads/$ref)"
+        local raw="https://raw.githubusercontent.com/$user/$repo/$ref/$path"
+        log "Downloading file (ref: $ref)"
+        debug "Raw URL: $raw"
         download_raw_file "$raw" "$out"
         verify_hash "$out" "$hash"
         success "Saved: ./$out"
