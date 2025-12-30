@@ -66,6 +66,7 @@ REPOS=(
   "https://github.com/Adaptix-Framework/AdaptixC2.git"
   "https://github.com/itm4n/PrivescCheck.git"
   "https://github.com/diego-treitos/linux-smart-enumeration.git"
+  "https://github.com/ShutdownRepo/targetedKerberoast.git"
 )
 
 APT_PACKAGES=(curl wget gcc make build-essential fzf golang-go python3 python3-pip python3-venv pipx parallel jq unzip git docker.io docker-compose cargo zsh tmux ligolo-mp)
