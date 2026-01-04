@@ -243,6 +243,7 @@ install_python_tools() {
     "git+https://github.com/CravateRouge/bloodyAD.git"
     "git+https://github.com/CravateRouge/autobloody.git"
     "git+https://github.com/Maxteabag/sqlit.git"
+    "git+https://github.com/p0dalirius/Coercer.git"
   )
 
   for pkg in "${py_tools[@]}"; do
