@@ -70,6 +70,8 @@ REPOS=(
   "https://github.com/Leo4j/Invoke-ADEnum.git"
   "https://github.com/lefayjey/linWinPwn.git"
   "https://github.com/gitleaks/gitleaks.git"
+  "https://github.com/semgrep/semgrep-rules.git"
+  "https://github.com/nullsection/chisel-ng.git"
 )
 
 APT_PACKAGES=(curl wget gcc make build-essential fzf golang-go python3 python3-pip python3-venv pipx parallel jq unzip git docker.io docker-compose cargo zsh tmux ligolo-mp lsd)
@@ -235,6 +237,7 @@ install_python_tools() {
 
   info "Installing Python tools via pipx..."
   local py_tools=(
+    "git+https://github.com/AD-Security/AD_Miner.git"
     "git+https://github.com/dwisiswant0/apkleaks.git"
     "git+https://github.com/s0md3v/Arjun.git"
     "git+https://github.com/s0md3v/uro.git"
@@ -246,6 +249,8 @@ install_python_tools() {
     "git+https://github.com/Maxteabag/sqlit.git"
     "git+https://github.com/p0dalirius/Coercer.git"
     "git+https://github.com/blacklanternsecurity/baddns"
+    "git+https://github.com/ShutdownRepo/pywhisker.git"
+    "git+https://github.com/aniqfakhrul/powerview.py.git"
   )
 
   for pkg in "${py_tools[@]}"; do
@@ -321,6 +326,19 @@ install_ronin() {
     fi
   else
     warn "curl not present; cannot install Ronin automatically."
+  fi
+}
+
+install_opengrep() {
+  info "Attempting opengrep install via upstream script"
+  if command -v curl &>/dev/null; then
+    if curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh 2>/dev/null | bash; then
+      success "Opengrep installed"
+    else
+      warn "Opengrep install script failed"
+    fi
+  else
+    warn "curl not present; cannot install Opengrep automatically."
   fi
 }
 
@@ -535,6 +553,8 @@ main() {
   install_bloodhound
   echo ""
   install_ronin
+  echo ""
+  install_opengrep
   echo ""
   install_witr
   echo ""
