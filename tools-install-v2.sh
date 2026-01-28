@@ -72,6 +72,7 @@ REPOS=(
   "https://github.com/gitleaks/gitleaks.git"
   "https://github.com/semgrep/semgrep-rules.git"
   "https://github.com/nullsection/chisel-ng.git"
+  "https://github.com/strayge/pylnk.git"
 )
 
 APT_PACKAGES=(curl wget gcc make build-essential fzf golang-go python3 python3-pip python3-venv pipx parallel jq unzip git docker.io docker-compose cargo zsh tmux ligolo-mp lsd)
