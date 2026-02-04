@@ -1,5 +1,21 @@
 #!/usr/bin/env bash
 
+""" 
+Advanced GitHub downloader that fetches files or entire directories by URL, 
+supports branches/tags/commits, handles private repos via token, recursively mirrors folders
+
+Usage: 
+
+    # Download a single file from a repository:
+        gh-raw-dl.sh https://github.com/USER/REPO/blob/master/path/to/file.exe
+    
+    # Save a file with a custom output name:
+        gh-raw-dl.sh -o myfile.bin https://github.com/USER/REPO/blob/dev/build/output.bin
+    
+    # Download an entire folder recursively:
+        gh-raw-dl.sh  https://github.com/USER/REPO/tree/main/tools
+"""
+
 set -euo pipefail
 
 RED='\033[0;31m'
