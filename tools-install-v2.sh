@@ -330,6 +330,55 @@ install_ronin() {
   fi
 }
 
+install_java_8() {
+  info "Attempting Java 8 install via upstream script"
+  if command -v curl &>/dev/null; then
+    if curl -o /tmp/openjdk-8u44-linux-x64.tar.gz -sSL "https://download.java.net/openjdk/jdk8u44/ri/openjdk-8u44-linux-x64.tar.gz" 2>/dev/null && tar -xzf /tmp/openjdk-8u44-linux-x64.tar.gz -C /tmp/ 2>/dev/null; then
+      tar -xzf /tmp/openjdk-8u44-linux-x64.tar.gz -C /tmp/ 2>/dev/null || warn "Java tar extraction warning"
+      sudo mv /tmp/java-se-8u44-ri /usr/lib/jvm/java-se-8 2>/dev/null || warn "Java mv warning"
+      sudo update-alternatives --install /usr/bin/java java /usr/lib/jvm/java-se-8/bin/java 1 2>/dev/null || warn "update-alternatives warning"
+      sudo update-alternatives --set java /usr/lib/jvm/java-se-8/bin/java 2>/dev/null || warn "update-alternatives set warning"
+      sudo update-alternatives --auto java 2>/dev/null || warn "update-alternatives auto warning"
+      success "Java 8 installed"
+    else
+      warn "Java 8 install script failed"
+    fi
+  else
+    warn "curl not present; cannot install Java 8 automatically."
+  fi
+}
+
+
+install_ysoserial_jar() {
+  info "Attempting ysoserial-jar install via upstream script"
+  if command -v curl &>/dev/null; then
+    if curl -o "$DEST_DIR/ysoserial-all.jar" -sSL "https://github.com/frohoff/ysoserial/releases/download/v0.0.6/ysoserial-all.jar" 2>/dev/null; then
+      success "ysoserial-jar installed"
+    else
+      warn "ysoserial-jar install script failed"
+    fi
+  else
+    warn "curl not present; cannot install ysoserial-jar automatically."
+  fi
+}
+
+install_ysoserial_net() {
+  info "Attempting ysoserial-net install via upstream script"
+  if command -v curl &>/dev/null; then
+    if curl -o "$DEST_DIR/ysoserial-net.zip" -sSL "https://github.com/pwntester/ysoserial.net/releases/download/v1.36/ysoserial-1dba9c4416ba6e79b6b262b758fa75e2ee9008e9.zip" 2>/dev/null; then
+      unzip -oq "$DEST_DIR/ysoserial-net.zip" -d "$DEST_DIR/ysoserial-net" 2>/dev/null || warn "ysoserial-net unzip warning"
+      mv $DEST_DIR/ysoserial-net/Release/* $DEST_DIR/ysoserial-net/ 2>/dev/null || true
+      rm -rf "$DEST_DIR/ysoserial-net/Release"
+      rm -f "$DEST_DIR/ysoserial-net.zip"
+      success "ysoserial-net installed"
+    else
+      warn "ysoserial-net install script failed"
+    fi
+  else
+    warn "curl not present; cannot install ysoserial-net automatically."
+  fi
+}
+
 install_opengrep() {
   info "Attempting opengrep install via upstream script"
   if command -v curl &>/dev/null; then
