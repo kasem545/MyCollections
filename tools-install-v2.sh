@@ -252,6 +252,7 @@ install_python_tools() {
     "git+https://github.com/blacklanternsecurity/baddns"
     "git+https://github.com/ShutdownRepo/pywhisker.git"
     "git+https://github.com/aniqfakhrul/powerview.py.git"
+    "git+https://github.com/Hackndo/pyGPOAbuse.git"
   )
 
   for pkg in "${py_tools[@]}"; do
