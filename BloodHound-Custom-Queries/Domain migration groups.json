@@ -1,0 +1,1 @@
+{"name":"Domain migration groups","guid":"f39c4953-ae92-4d67-bb50-eb1a161d4d3f","prebuilt":false,"platforms":["Active Directory"],"category":"Domain Information","description":null,"query":"MATCH (n:Group)\nWHERE n.name CONTAINS \"$$$@\"\nRETURN n","revision":1,"resources":[],"acknowledgements":["Martin Sohn Christensen, @martinsohndk"]}

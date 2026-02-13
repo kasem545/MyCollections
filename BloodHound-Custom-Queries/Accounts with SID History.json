@@ -1,0 +1,1 @@
+{"name":"Accounts with SID History","guid":"8172d52c-a975-49bd-9180-5b6efc59c9ab","prebuilt":false,"platforms":["Active Directory"],"category":"Active Directory Hygiene","description":null,"query":"MATCH p=(:Base)-[:HasSIDHistory]->(:Base)\nRETURN p","revision":1,"resources":[],"acknowledgements":["Martin Sohn Christensen, @martinsohndk"]}
