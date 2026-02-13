@@ -41,40 +41,8 @@ Most scripts require minimal dependencies. Check individual tool sections for sp
 
 ## Tools Overview
 
-### CTF & Challenge Tools
 
-#### HackPad
-**Terminal-based note-taking application for penetration testers**
-
-- Organize notes in hierarchical sections and entries
-- Tag-based filtering and priority management
-- Color coding for visual organization
-- Export to Markdown
-- Timestamps for tracking progress
-
-**Compilation:**
-```bash
-gcc hackpad.c -lncurses -o HackPad
-```
-
-**Usage:**
-```bash
-./HackPad [file.md]
-```
-
-**Keyboard Shortcuts:**
-- `?` - Help menu
-- `h/l` - Navigate sections/entries
-- `j/k` - Move up/down
-- `N` - New section
-- `A` - Add entry
-- `E` - Edit entry
-- `S` - Save
-- `Q` - Quit
-
----
-
-#### create_ctf.sh
+### create_ctf.sh
 **Automated CTF machine directory structure generator**
 
 Creates organized workspace for CTF challenges with pre-configured directories and README template.
@@ -107,7 +75,7 @@ Creates organized workspace for CTF challenges with pre-configured directories a
 
 ---
 
-#### addhost.sh
+### addhost.sh
 **Manage /etc/hosts entries for CTF platforms**
 
 Easily add and organize IP-to-domain mappings for HTB, THM, and other platforms.
@@ -131,7 +99,7 @@ sudo ./addhost.sh 10.10.11.20 target.thm thm
 
 ### Reconnaissance & OSINT
 
-#### crt.sh
+### crt.sh
 **Subdomain enumeration using Certificate Transparency logs**
 
 Query crt.sh for SSL/TLS certificates to discover subdomains.
@@ -167,7 +135,7 @@ Query crt.sh for SSL/TLS certificates to discover subdomains.
 
 ### Web Security
 
-#### jsendpoints.js
+### jsendpoints.js
 **Browser bookmarklet to extract JavaScript endpoints**
 
 Extract API endpoints, URLs, and paths from JavaScript files on any webpage.
@@ -216,7 +184,7 @@ Same as jsendpoints.js - add as browser bookmark
 
 ### Network Analysis
 
-#### Pcap-shark.py
+### Pcap-shark.py
 **PCAP file analyzer for credential and file extraction**
 
 Extract cleartext credentials and files from network captures.
@@ -261,7 +229,7 @@ extracted_files/
 
 ### Payload Generation
 
-#### revshell.sh
+### revshell.sh
 **Multi-language reverse shell payload generator**
 
 Generate reverse shell payloads for various programming languages and tools.
@@ -293,7 +261,7 @@ revshell 10.10.14.5 4444
 
 ### Utilities
 
-#### gh-raw-dl.sh
+### gh-raw-dl.sh
 **Download files and folders from GitHub without cloning**
 
 Download specific files or directories from GitHub repositories using raw URLs.
@@ -330,7 +298,7 @@ Download specific files or directories from GitHub repositories using raw URLs.
 
 ---
 
-#### repo-updater.sh
+### repo-updater.sh
 **Bulk update Git repositories**
 
 Update all Git repositories in /opt directory.
@@ -348,7 +316,7 @@ sudo ./repo-updater.sh
 
 ---
 
-#### tools-install-v2.sh
+### tools-install-v2.sh
 **Automated security tools installer**
 
 Install and configure essential penetration testing tools.
@@ -453,8 +421,3 @@ Copyright (C) 2025 Kasem Shibli <kasem545@proton.me>
 
 **Use responsibly and ethically.**
 
----
-
-## Author
-
-Maintained by Kasem Shibli
