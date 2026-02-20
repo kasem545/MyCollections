@@ -228,6 +228,30 @@ install_go_tools() {
   done
 }
 
+# ========== Rust tools via cargo ==========
+install_rust_tools() {
+  if ! command -v cargo &>/dev/null; then
+    warn "cargo not found in PATH. Skipping Rust tool installs."
+    return 0
+  fi
+  info "Installing Rust tools (cargo home: ${CARGO_HOME:-$HOME/.cargo})"
+  export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:${PATH:-/usr/local/bin}"
+  local rust_tools=(
+    "https://github.com/g0h4n/RustHound-CE"
+    "https://github.com/sharkdp/bat"
+    "https://github.com/praetorian-inc/noseyparker"
+  )
+  for tool in "${rust_tools[@]}"; do
+    local tool_name=$(basename "$tool")
+    step "Installing $tool_name..."
+    if cargo install --git "$tool" 2>/dev/null; then
+      success "Installed $tool_name"
+    else
+      warn "cargo install failed for $tool — continuing"
+    fi
+  done
+}
+
 # ========== Python tools via pipx ==========
 install_python_tools() {
   if ! command -v pipx &>/dev/null; then
@@ -553,6 +577,7 @@ source $ZSH/oh-my-zsh.sh
 # User configuration
 export GOPATH="${HOME}/go"
 export PATH="${GOPATH}/bin:${PATH}:${HOME}/.local/bin"
+export PATH="$PATH:$HOME/.cargo/bin"
 
 # Generated for pdtm. Do not edit.
 export PATH=$PATH:$HOME/.pdtm/go/bin
@@ -619,6 +644,8 @@ main() {
   install_git_repos
   echo ""
   install_go_tools
+  echo ""
+  install_rust_tools
   echo ""
   install_python_tools
   echo ""
