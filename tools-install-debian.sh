@@ -62,7 +62,6 @@ REPOS=(
   "https://github.com/hakluke/hakrawler.git"
   "https://github.com/danielmiessler/SecLists.git"
   "https://github.com/HavocFramework/Havoc.git"
-  "https://github.com/Greenwolf/ntlm_theft.git"
   "https://github.com/Adaptix-Framework/AdaptixC2.git"
   "https://github.com/itm4n/PrivescCheck.git"
   "https://github.com/diego-treitos/linux-smart-enumeration.git"
@@ -252,6 +251,10 @@ install_python_tools() {
     "git+https://github.com/blacklanternsecurity/baddns"
     "git+https://github.com/ShutdownRepo/pywhisker.git"
     "git+https://github.com/aniqfakhrul/powerview.py.git"
+    "git+https://github.com/Hackndo/pyGPOAbuse.git"
+    "git+https://github.com/shellinvictus/GriffonAD.git"
+    "git+https://github.com/p0dalirius/smbclient-ng.git"
+    "git+https://github.com/kasem545/ntlm_theft.git"
   )
 
   for pkg in "${py_tools[@]}"; do
