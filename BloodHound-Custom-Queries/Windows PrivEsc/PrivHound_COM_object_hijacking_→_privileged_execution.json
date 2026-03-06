@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: COM object hijacking \u2192 privileged execution",
+  "guid": "9b34f38d-5a8f-45ae-b615-805d7cabff2d",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Hijackable COM objects that execute as a privileged target.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanHijackCOM]->(com:PHCOMHijack)-[:PHExecutesAs]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

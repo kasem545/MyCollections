@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: SCCM NAA \u2192 login \u2192 admin (full chain)",
+  "guid": "e6f7055f-070b-44eb-b7ce-824e6ef3e036",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Full chain: SCCM NAA credentials used to log in as a local admin.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanReadNAA]->(sccm:PHSCCMCredential)-[:PHCanLoginAs]->(lu:PHLocalUser)-[:PHMemberOf]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

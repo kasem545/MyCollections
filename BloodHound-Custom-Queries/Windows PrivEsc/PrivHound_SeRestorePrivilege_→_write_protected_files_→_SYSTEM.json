@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: SeRestorePrivilege \u2192 write protected files \u2192 SYSTEM",
+  "guid": "89032ec8-4846-42ff-82a7-c0c1870f5448",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "SeRestorePrivilege used to overwrite protected files for SYSTEM access.",
+  "query": "MATCH p=(u:PHUser)-[:PHHasPrivilege]->(priv:PHTokenPrivilege)-[:PHCanWriteProtected]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: Cross-user profiles with sensitive files",
+  "guid": "990b8182-444b-4d6e-97e9-ccb2649e4484",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Credential Access",
+  "description": "Accessible user profiles containing sensitive files.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanAccessProfile]->(prof:PHUserProfile)-[:PHProfileContains]->(f:PHSensitiveFile)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

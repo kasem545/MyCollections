@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: Cached creds \u2192 login \u2192 admin",
+  "guid": "445a0a59-d3cd-4e5d-8718-9574660c1329",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Cached credentials usable to log in as a local admin.",
+  "query": "MATCH p=(u:PHUser)-[:PHHasCachedCreds]->(cc:PHCachedCreds)-[:PHCanLoginAs]->(lu:PHLocalUser)-[:PHMemberOf]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

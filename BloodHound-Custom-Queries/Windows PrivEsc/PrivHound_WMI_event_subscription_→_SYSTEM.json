@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: WMI event subscription \u2192 SYSTEM",
+  "guid": "5070ab73-0247-4d66-922d-0379c3d0c220",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "WMI event subscriptions the current user can modify, running as SYSTEM.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanModifyWMI]->(wmi:PHWMISubscription)-[:PHRunsAs]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

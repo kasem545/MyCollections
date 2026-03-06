@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: AlwaysInstallElevated escalation path",
+  "guid": "f5f85acc-ad15-42d9-b6cc-f615cede68c3",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "AlwaysInstallElevated registry misconfiguration leading to privilege escalation.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanExploit]->(r:PHRegistryMisconfig)-[:PHEscalatesTo]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

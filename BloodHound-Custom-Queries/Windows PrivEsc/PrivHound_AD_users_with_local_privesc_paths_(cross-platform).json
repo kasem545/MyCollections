@@ -1,0 +1,15 @@
+{
+  "name": "PrivHound: AD users with local privesc paths (cross-platform)",
+  "guid": "c871492d-de45-4122-9cd8-9a3d90943731",
+  "prebuilt": false,
+  "platforms": [
+    "Windows",
+    "Active Directory"
+  ],
+  "category": "Privilege Escalation",
+  "description": "AD users with active sessions on hosts that also have PrivHound local escalation paths. Requires both SharpHound and PrivHound data.",
+  "query": "MATCH (adUser:User)-[:HasSession]->(comp:Computer)\nWHERE comp.name CONTAINS toUpper(\n  [(ep:PHEndpoint) | ep.hostname][0]\n)\nMATCH p2=(phu:PHUser)-[*1..5]->(target:PHPrivTarget)\nRETURN adUser.name AS ADUser, p2",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

@@ -1,0 +1,15 @@
+{
+  "name": "PrivHound: Cross-domain AD overlay (enhanced)",
+  "guid": "ccc3f415-7841-4808-ac50-622431cea1fd",
+  "prebuilt": false,
+  "platforms": [
+    "Windows",
+    "Active Directory"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Correlates AD user sessions with PrivHound escalation paths, reporting AD user, target, and hop count.",
+  "query": "MATCH (adUser:User)-[:HasSession]->(comp:Computer)\nMATCH (ep:PHEndpoint) WHERE comp.name CONTAINS toUpper(ep.hostname)\nMATCH p2=(phu:PHUser)-[*1..6]->(target:PHPrivTarget)\nRETURN adUser.name AS ADUser, target.account AS EscTarget, length(p2) AS Hops, p2",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

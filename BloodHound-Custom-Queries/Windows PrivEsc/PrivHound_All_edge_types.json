@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: All edge types",
+  "guid": "b62d63ee-ffe0-4eac-a530-5e959ca14034",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Count of all PrivHound relationship types in the graph.",
+  "query": "MATCH ()-[r]->() WHERE type(r) STARTS WITH \"PH\"\nRETURN type(r) AS EdgeType, count(*) AS Count\nORDER BY Count DESC",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

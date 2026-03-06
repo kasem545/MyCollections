@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: Modifiable services running as SYSTEM",
+  "guid": "0fb4e65b-99af-4830-b040-296593e93e35",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Services with weak permissions that run as SYSTEM.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanModifyService]->(s:PHService)-[:PHRunsAs]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

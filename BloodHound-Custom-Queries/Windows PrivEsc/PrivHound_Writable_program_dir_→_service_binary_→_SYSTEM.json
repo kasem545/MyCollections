@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: Writable program dir \u2192 service binary \u2192 SYSTEM",
+  "guid": "531a8c0b-f78b-481c-8ff6-dbc4d0bbaaac",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Writable program directories hosting a service binary that runs as SYSTEM.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanWriteProgDir]->(d:PHWritableProgramDir)-[:PHHostsBinaryFor]->(s:PHService)-[:PHRunsAs]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: Shadow copy \u2192 sensitive files",
+  "guid": "565040f8-f851-4a61-af4c-436a67e177d5",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Credential Access",
+  "description": "Accessible shadow copies that contain sensitive files.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanAccessShadowCopy]->(sc:PHShadowCopy)-[:PHContainsSensitiveFile]->(f:PHSensitiveFile)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

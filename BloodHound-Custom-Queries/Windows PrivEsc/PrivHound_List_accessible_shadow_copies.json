@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: List accessible shadow copies",
+  "guid": "95b4a0e8-5ea6-42f6-96a0-306aea4e2f2f",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Credential Access",
+  "description": "All shadow copies accessible to the current user.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanAccessShadowCopy]->(sc:PHShadowCopy)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: List WebClient relay opportunities",
+  "guid": "214ee333-9130-4d55-8811-badb9292d568",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "All WebClient relay nodes accessible to the current user.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanRelayWebClient]->(wc:PHWebClientRelay)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

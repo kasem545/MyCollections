@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: Writable autorun executables",
+  "guid": "8c586aa2-7dd7-4993-ac42-54297385788b",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Autorun entries whose executable is writable by the current user.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanWriteAutorun]->(ar:PHAutoRun)-[:PHExecutesAs]->()\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

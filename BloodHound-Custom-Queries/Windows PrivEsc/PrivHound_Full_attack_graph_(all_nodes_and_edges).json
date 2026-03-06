@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: Full attack graph (all nodes and edges)",
+  "guid": "379b131b-5652-479e-8f98-1cafbf82e41e",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "All PrivHound nodes and edges across every finding type.",
+  "query": "MATCH p=()-[:PHCanModifyService|PHCanWriteBinary|PHCanHijackPath|PHCanWriteTo|PHDLLHijackTo|PHCanExploit|PHHasPrivilege|PHCanEscalateTo|PHCanWriteTaskBinary|PHCanWriteAutorun|PHCanModifyRegKey|PHCanReadCreds|PHHasStoredCreds|PHCanDecryptGPP|PHCanReadHistory|PHCanAccessFile|PHCanBypassUAC|PHCanWriteProgDir|PHCanLoginAs|PHMemberOf|PHHostsBinaryFor|PHRunsAsUser|PHRunsAs|PHEscalatesTo|PHExecutesAs|PHHosts|PHHasSessionOn|PHCanReadProtected|PHCanExtractHashes|PHCanWriteProtected|PHCanInjectInto|PHCanLoginViaRunas|PHCanAccessProfile|PHProfileContains|PHContainsCreds|PHCanRequestJIT|PHGrantsTempAdmin|PHCanExploitSpooler|PHCanExploitWSUS|PHCanReadNAA|PHCanHijackCOM|PHCanImpersonatePipe|PHHasCachedCreds|PHCanModifyWMI|PHCanRelayWebClient|PHCanWriteRecoveryBin|PHCanAccessShadowCopy|PHContainsSensitiveFile]->()\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

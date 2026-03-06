@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: List hijackable COM objects",
+  "guid": "2850f3d8-0617-40df-b653-4f352080c0b8",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "All COM objects hijackable by the current user.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanHijackCOM]->(com:PHCOMHijack)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

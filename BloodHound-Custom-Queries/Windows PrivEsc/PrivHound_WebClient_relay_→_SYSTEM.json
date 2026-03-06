@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: WebClient relay \u2192 SYSTEM",
+  "guid": "416cbbf6-99c1-46e6-ba2f-8fec60c39664",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "WebClient NTLM relay opportunities escalating to SYSTEM.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanRelayWebClient]->(wc:PHWebClientRelay)-[:PHEscalatesTo]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

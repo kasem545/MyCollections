@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: List accessible SYSTEM named pipes",
+  "guid": "585da4ac-2883-4926-9c0f-7f4df7dcc23e",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "All named pipes accessible to the current user for impersonation.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanImpersonatePipe]->(pipe:PHNamedPipe)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

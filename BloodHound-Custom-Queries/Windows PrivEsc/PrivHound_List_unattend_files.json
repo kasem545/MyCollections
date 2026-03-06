@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: List unattend files",
+  "guid": "82768247-2d59-4456-9ad5-8d64f11c0122",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Credential Access",
+  "description": "All unattended install files accessible to the current user.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanReadCreds]->(f:PHUnattendFile)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

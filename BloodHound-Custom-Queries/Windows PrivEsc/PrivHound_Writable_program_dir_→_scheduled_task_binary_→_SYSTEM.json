@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: Writable program dir \u2192 scheduled task binary \u2192 SYSTEM",
+  "guid": "5a6ab0c0-a955-44a1-9e74-1063ad787477",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Writable program directories hosting a scheduled task binary that runs as SYSTEM.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanWriteProgDir]->(d:PHWritableProgramDir)-[:PHHostsBinaryFor]->(task:PHScheduledTask)-[:PHRunsAs]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

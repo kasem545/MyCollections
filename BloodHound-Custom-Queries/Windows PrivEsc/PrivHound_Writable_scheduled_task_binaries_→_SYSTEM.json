@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: Writable scheduled task binaries \u2192 SYSTEM",
+  "guid": "747286da-199d-446f-bf8b-1427409b14f0",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Scheduled tasks whose binary is writable and runs as a privileged target.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanWriteTaskBinary]->(task:PHScheduledTask)-[:PHRunsAs]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

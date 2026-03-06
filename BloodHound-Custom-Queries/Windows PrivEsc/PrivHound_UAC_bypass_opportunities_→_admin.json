@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: UAC bypass opportunities \u2192 admin",
+  "guid": "56505888-a1f7-44f5-8425-2f6e88a0be46",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "UAC bypass techniques available to the current user leading to admin.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanBypassUAC]->(uac:PHUACBypass)-[:PHEscalatesTo]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

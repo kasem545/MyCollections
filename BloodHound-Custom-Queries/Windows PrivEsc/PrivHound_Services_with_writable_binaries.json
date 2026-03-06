@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: Services with writable binaries",
+  "guid": "f84f9fc5-9e1d-430d-b62a-cf04cc2142b4",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Services whose binary path is writable by the current user.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanWriteBinary]->(s:PHService)-[:PHRunsAs]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

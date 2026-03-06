@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: List PowerShell history and transcript files",
+  "guid": "bc2c0c9e-dc41-4401-adc9-c6a62caa16ae",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Credential Access",
+  "description": "All PowerShell history and transcript files readable by the current user.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanReadHistory]->(h:PHPSHistory)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

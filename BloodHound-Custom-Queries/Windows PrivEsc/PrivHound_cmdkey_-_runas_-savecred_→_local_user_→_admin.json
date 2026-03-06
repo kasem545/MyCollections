@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: cmdkey / runas /savecred \u2192 local user \u2192 admin",
+  "guid": "1df2eaf7-e243-4375-ba76-abe8a871266e",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Saved cmdkey credentials usable via runas /savecred to login as a local admin.",
+  "query": "MATCH p=(u:PHUser)-[:PHHasStoredCreds]->(c:PHStoredCredential)-[:PHCanLoginViaRunas]->(lu:PHLocalUser)-[:PHMemberOf]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

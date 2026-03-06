@@ -1,0 +1,15 @@
+{
+  "name": "PrivHound: Endpoints with PrivHound findings + AD context",
+  "guid": "25d1a6f4-44ea-42f5-86bd-c05ab4d10615",
+  "prebuilt": false,
+  "platforms": [
+    "Windows",
+    "Active Directory"
+  ],
+  "category": "Privilege Escalation",
+  "description": "PrivHound endpoints correlated with BloodHound AD computer objects.",
+  "query": "MATCH (ep:PHEndpoint)\nOPTIONAL MATCH (comp:Computer) WHERE comp.name CONTAINS toUpper(ep.hostname)\nRETURN ep.hostname AS Host, ep.os AS OS, comp.name AS ADComputer",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: SeDebugPrivilege \u2192 process injection \u2192 SYSTEM",
+  "guid": "97669eaa-a3ae-4f7c-b1ab-52b77d7ddb81",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "SeDebugPrivilege enables injection into privileged processes to achieve SYSTEM.",
+  "query": "MATCH p=(u:PHUser)-[:PHHasPrivilege]->(priv:PHTokenPrivilege)-[:PHCanInjectInto]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

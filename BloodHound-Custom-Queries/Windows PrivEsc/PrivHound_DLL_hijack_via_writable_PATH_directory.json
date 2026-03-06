@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: DLL hijack via writable PATH directory",
+  "guid": "3915a36d-8231-4fc5-b7bc-56be22d963fa",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Writable directories in PATH that enable DLL hijacking to a privileged target.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanWriteTo]->(d:PHWritablePath)-[:PHDLLHijackTo]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

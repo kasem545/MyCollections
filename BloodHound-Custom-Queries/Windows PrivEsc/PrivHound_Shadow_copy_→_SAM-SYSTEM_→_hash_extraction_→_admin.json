@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: Shadow copy \u2192 SAM/SYSTEM \u2192 hash extraction \u2192 admin",
+  "guid": "4f79fa6e-1360-4d9c-8699-61b71301c828",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Full chain: shadow copy contains SAM/SYSTEM hives usable for hash extraction and admin access.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanAccessShadowCopy]->(sc:PHShadowCopy)-[:PHContainsSensitiveFile]->(f:PHSensitiveFile)-[:PHCanExtractHashes]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

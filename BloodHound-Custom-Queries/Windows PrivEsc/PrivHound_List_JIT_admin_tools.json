@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: List JIT admin tools",
+  "guid": "97ba154d-348d-4c80-8600-a2140ef0dd96",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "All JIT admin tools accessible to the current user.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanRequestJIT]->(jit:PHJITAdminTool)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

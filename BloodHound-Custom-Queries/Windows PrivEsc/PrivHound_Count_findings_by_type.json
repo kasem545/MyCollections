@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: Count findings by type",
+  "guid": "e7693a1b-1336-4007-92e5-b8a2c8bc6671",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Summary count of all PrivHound findings grouped by relationship type, ordered by frequency.",
+  "query": "MATCH (u:PHUser)-[r]->(n)\nWHERE type(r) STARTS WITH \"PHCan\" OR type(r) STARTS WITH \"PHHas\"\nRETURN type(r) AS FindingType, count(*) AS Count\nORDER BY Count DESC",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

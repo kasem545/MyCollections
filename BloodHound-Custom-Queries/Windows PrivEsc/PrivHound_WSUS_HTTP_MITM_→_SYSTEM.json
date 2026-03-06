@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: WSUS HTTP MITM \u2192 SYSTEM",
+  "guid": "23810fd9-bd02-48db-9a81-59abd91026fb",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "WSUS configured over HTTP enabling a MITM attack to achieve SYSTEM.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanExploitWSUS]->(ws:PHWSUSConfig)-[:PHEscalatesTo]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

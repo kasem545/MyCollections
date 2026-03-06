@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: Named pipe impersonation \u2192 SYSTEM",
+  "guid": "2c77ac27-1308-4cef-9e77-e030a38e4698",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Named pipes running as SYSTEM that can be impersonated by the current user.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanImpersonatePipe]->(pipe:PHNamedPipe)-[:PHRunsAs]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: Dangerous token privileges \u2192 SYSTEM",
+  "guid": "5b20aecc-d8a8-4f14-b59d-92ebf9410f4d",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Token privileges that can be abused to escalate to a privileged target.",
+  "query": "MATCH p=(u:PHUser)-[:PHHasPrivilege]->(priv:PHTokenPrivilege)-[:PHCanEscalateTo]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

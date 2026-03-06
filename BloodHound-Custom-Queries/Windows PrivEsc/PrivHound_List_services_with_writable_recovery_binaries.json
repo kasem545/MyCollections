@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: List services with writable recovery binaries",
+  "guid": "05d062b9-783b-4108-b1bf-9e624218b726",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "All services with recovery command binaries writable by the current user.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanWriteRecoveryBin]->(s:PHService)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: All shortest paths to SYSTEM or Admin",
+  "guid": "c82be1d3-13ed-49dc-bec0-5a44e949921c",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Shortest paths from any PrivHound user to any privileged target.",
+  "query": "MATCH p=shortestPath((u:PHUser)-[*1..8]->(t:PHPrivTarget))\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

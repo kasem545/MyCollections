@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: List dangerous token privileges",
+  "guid": "a20f3a5f-cb95-493a-b4b8-d80da43805a1",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "All dangerous token privileges held by PrivHound users.",
+  "query": "MATCH p=(u:PHUser)-[:PHHasPrivilege]->(priv:PHTokenPrivilege)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

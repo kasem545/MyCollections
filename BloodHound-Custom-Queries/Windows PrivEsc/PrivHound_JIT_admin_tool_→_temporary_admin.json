@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: JIT admin tool \u2192 temporary admin",
+  "guid": "844fd0d5-c7f5-4afc-8d5b-146eb686fad8",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "JIT admin tools (e.g. MakeMeAdmin, CyberArk EPM) that grant temporary admin rights.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanRequestJIT]->(jit:PHJITAdminTool)-[:PHGrantsTempAdmin]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

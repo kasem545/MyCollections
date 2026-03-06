@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: List unquoted paths",
+  "guid": "dea4c5d8-eff7-4d31-a62d-cfd67fc6699c",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "All unquoted service path nodes accessible to the current user.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanHijackPath]->(uq:PHUnquotedPath)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

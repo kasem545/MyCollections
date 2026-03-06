@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: All vulnerable services (list)",
+  "guid": "16844ab9-afea-4dda-8401-e32fb84091b4",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "All services with modifiable config or writable binaries.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanModifyService|PHCanWriteBinary]->(s:PHService)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

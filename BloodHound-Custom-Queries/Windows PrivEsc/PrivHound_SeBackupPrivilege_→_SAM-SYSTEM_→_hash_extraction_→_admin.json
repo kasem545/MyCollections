@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: SeBackupPrivilege \u2192 SAM/SYSTEM \u2192 hash extraction \u2192 admin",
+  "guid": "51632425-8d52-4522-a92d-3364ed1ff41e",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Full chain: SeBackupPrivilege used to read SAM/SYSTEM hives and extract password hashes.",
+  "query": "MATCH p=(u:PHUser)-[:PHHasPrivilege]->(priv:PHTokenPrivilege)-[:PHCanReadProtected]->(f:PHSensitiveFile)-[:PHCanExtractHashes]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

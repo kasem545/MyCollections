@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: Unquoted service path hijacking",
+  "guid": "c05804e3-f666-4274-9b70-899cb4010332",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Unquoted service path hijacking opportunities leading to a privileged target.",
+  "query": "MATCH p=(u:PHUser)-[:PHCanHijackPath]->(uq:PHUnquotedPath)-[:PHRunsAs]->(t:PHPrivTarget)\nRETURN p",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}

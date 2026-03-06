@@ -1,0 +1,14 @@
+{
+  "name": "PrivHound: All node kinds",
+  "guid": "ad449d1b-0762-4649-ae2c-2a1a95bd61e6",
+  "prebuilt": false,
+  "platforms": [
+    "Windows"
+  ],
+  "category": "Privilege Escalation",
+  "description": "Count of all PrivHound node labels in the graph.",
+  "query": "MATCH (n) WHERE any(k IN labels(n) WHERE k STARTS WITH \"PH\")\nRETURN labels(n) AS Kind, count(*) AS Count\nORDER BY Count DESC",
+  "revision": 1,
+  "resources": [],
+  "acknowledgements": []
+}
