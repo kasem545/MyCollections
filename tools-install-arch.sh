@@ -53,7 +53,6 @@ REPOS=(
   "https://github.com/trickest/cve.git"
   "https://github.com/Flangvik/SharpCollection.git"
   "https://github.com/urbanadventurer/username-anarchy.git"
-
   "https://github.com/x90skysn3k/brutespray.git"
   "https://github.com/GerbenJavado/LinkFinder.git"
   "https://github.com/hakluke/hakrawler.git"
@@ -319,6 +318,7 @@ install_python_tools() {
     "git+https://github.com/p0dalirius/smbclient-ng.git"
     "git+https://github.com/kasem545/ntlm_theft.git"
     "git+https://github.com/ly4k/Certipy.git"
+    "git+https://github.com/ihebski/DefaultCreds-cheat-sheet.git"
 
   )
 
