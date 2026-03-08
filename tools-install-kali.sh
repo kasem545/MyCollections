@@ -280,6 +280,7 @@ install_python_tools() {
     "git+https://github.com/p0dalirius/smbclient-ng.git"
     "git+https://github.com/kasem545/ntlm_theft.git"
     "git+https://github.com/ly4k/Certipy.git"
+    "git+https://github.com/ihebski/DefaultCreds-cheat-sheet.git"
   )
 
   for pkg in "${py_tools[@]}"; do
