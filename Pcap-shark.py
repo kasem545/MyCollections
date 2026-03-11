@@ -687,12 +687,31 @@ class PCAPAnalyzer:
         if packet.haslayer(TCP) and (packet[TCP].dport == 389 or packet[TCP].sport == 389):
             payload = self.extract_payload(packet)
             
-            if payload and ('simple' in payload.lower() or 'bindrequest' in payload.lower()):
-                self.add_finding('LDAP', 'HIGH', 'Bind Request', {
-                    'data': payload[:100],
-                    'src': packet[IP].src,
-                    'dst': packet[IP].dst
+            if not payload:
+                return
+            
+            # Check for standard LDAP bind requests
+            if 'simple' in payload.lower() or 'bindrequest' in payload.lower():
+                self.add_finding('LDAP', 'HIGH', 'LDAP Bind Request', {
+                    'data': payload[:100]
                 })
+            
+            # Check for cleartext credentials on LDAP port (non-standard protocols)
+            user_match = self.patterns['user_field'].search(payload)
+            pass_match = self.patterns['password_field'].search(payload)
+            
+            if user_match and pass_match:
+                finding_details = {
+                    'username': user_match.group(2),
+                    'password': pass_match.group(2)
+                }
+                
+                # Extract domain if present (LDAP-specific)
+                domain_match = re.search(r'(?i)domain[=:\s]+([^\s&\r\n;]+)', payload)
+                if domain_match:
+                    finding_details['domain'] = domain_match.group(1)
+                
+                self.add_finding('LDAP', 'CRITICAL', 'Cleartext Credentials', finding_details)
 
     def analyze_dns(self, packet):
         """Analyze DNS traffic"""
