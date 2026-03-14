@@ -730,9 +730,8 @@ usage() {
 	  ${C_CYAN}status${C_RESET}                        Show detailed status
 	  ${C_CYAN}info${C_RESET} <image>                  Show image information
 	  ${C_CYAN}install${C_RESET}                       Install required dependencies
-	  ${C_CYAN}version${C_RESET}                       Show version information
-	  ${C_CYAN}help${C_RESET}                          Show this help message
 	
+    
 	${C_BOLD}SUPPORTED FORMATS${C_RESET}
 	  • .vhd   (Microsoft Virtual PC / vpc format)
 	  • .vhdx  (Hyper-V format)
