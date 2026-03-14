@@ -281,6 +281,7 @@ install_python_tools() {
     "git+https://github.com/kasem545/ntlm_theft.git"
     "git+https://github.com/ly4k/Certipy.git"
     "git+https://github.com/ihebski/DefaultCreds-cheat-sheet.git"
+    "git+https://github.com/blacklanternsecurity/MANSPIDER.git"
   )
 
   for pkg in "${py_tools[@]}"; do
