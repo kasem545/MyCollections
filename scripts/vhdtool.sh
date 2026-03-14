@@ -346,14 +346,49 @@ cmd_install() {
     log_section "Installing Dependencies"
     
     if command -v apt-get &>/dev/null; then
+        log_info "Detected: Debian/Ubuntu"
         apt-get update -qq
         apt-get install -y qemu-utils nbd-client dislocker parted
+        
     elif command -v dnf &>/dev/null; then
+        log_info "Detected: Fedora/RHEL"
         dnf install -y qemu-img nbd dislocker parted
+        
+    elif command -v yum &>/dev/null; then
+        log_info "Detected: CentOS/RHEL (legacy)"
+        yum install -y epel-release
+        yum install -y qemu-img nbd dislocker parted
+        
     elif command -v pacman &>/dev/null; then
+        log_info "Detected: Arch Linux"
         pacman -Sy --noconfirm qemu-img nbd dislocker parted
+        
+    elif command -v zypper &>/dev/null; then
+        log_info "Detected: openSUSE/SLES"
+        zypper install -y qemu-tools nbd dislocker parted
+        
+    elif command -v apk &>/dev/null; then
+        log_info "Detected: Alpine Linux"
+        apk add --no-cache qemu-img nbd dislocker parted
+        
+    elif command -v emerge &>/dev/null; then
+        log_info "Detected: Gentoo"
+        emerge --ask=n app-emulation/qemu sys-block/nbd sys-fs/dislocker sys-block/parted
+        
+    elif command -v xbps-install &>/dev/null; then
+        log_info "Detected: Void Linux"
+        xbps-install -Sy qemu nbd dislocker parted
+        
     else
-        die "Unsupported package manager. Install manually: qemu-utils, nbd-client, dislocker"
+        log_error "Unsupported package manager"
+        echo
+        echo "Install these packages manually:"
+        echo "  - qemu-utils / qemu-img  (VHD/VHDX support)"
+        echo "  - nbd / nbd-client       (Network Block Device)"
+        echo "  - dislocker              (BitLocker decryption)"
+        echo "  - parted                 (Partition handling)"
+        echo
+        die "Then re-run: ${SCRIPT_NAME} install"
     fi
     
     log_ok "Dependencies installed successfully"
