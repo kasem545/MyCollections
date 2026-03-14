@@ -1,7 +1,55 @@
-## Tools Overview
+# Tools Overview
 
+## vhdtool.sh
+**Virtual Hard Disk (VHD) management utility**
+VHD/VHDX mount utility for Linux 
+### Installation
 
-### create_ctf.sh
+```bash
+sudo ./vhdtool.sh install
+```
+
+Supported: Debian/Ubuntu, Fedora/RHEL, CentOS, Arch, openSUSE, Alpine, Gentoo, Void Linux
+
+#### Usage
+
+```bash
+# Mount (auto-detects encryption)
+sudo ./vhdtool.sh mount image.vhd /mnt/disk
+
+# Mount with BitLocker password
+sudo ./vhdtool.sh mount encrypted.vhd /mnt/secure -p "password"
+
+# Mount with recovery key
+sudo ./vhdtool.sh mount encrypted.vhd /mnt/secure -r "123456-789012-..."
+
+# Unmount
+sudo ./vhdtool.sh umount /mnt/secure
+
+# Show image info
+./vhdtool.sh info image.vhd
+
+# List mounted volumes
+sudo ./vhdtool.sh list
+
+# Show status
+sudo ./vhdtool.sh status
+```
+#### Supported Formats
+
+| Format | Extension | Description |
+|--------|-----------|-------------|
+| VPC | `.vhd` | Microsoft Virtual PC |
+| VHDX | `.vhdx` | Hyper-V |
+
+#### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `VHDTOOL_DEBUG=1` | Enable debug output |
+| `NO_COLOR=1` | Disable colored output |
+
+## create_ctf.sh
 **Automated CTF machine directory structure generator**
 
 Creates organized workspace for CTF challenges with pre-configured directories and README template.
@@ -34,7 +82,7 @@ Creates organized workspace for CTF challenges with pre-configured directories a
 
 ---
 
-### addhost.sh
+## addhost.sh
 **Manage /etc/hosts entries for CTF platforms**
 
 Easily add and organize IP-to-domain mappings for HTB, THM, and other platforms.
@@ -56,7 +104,7 @@ sudo ./addhost.sh 10.10.11.20 target.thm thm
 
 ---
 
-### Reconnaissance & OSINT
+## Reconnaissance & OSINT
 
 ### crt.sh
 **Subdomain enumeration using Certificate Transparency logs**
@@ -92,7 +140,7 @@ Query crt.sh for SSL/TLS certificates to discover subdomains.
 
 ---
 
-### Web Security
+## Web Security
 
 ### jsendpoints.js
 **Browser bookmarklet to extract JavaScript endpoints**
@@ -141,7 +189,7 @@ Same as jsendpoints.js - add as browser bookmark
 
 ---
 
-### Network Analysis
+## Network Analysis
 
 ### Pcap-shark.py
 **PCAP file analyzer for credential and file extraction**
@@ -186,7 +234,7 @@ extracted_files/
 
 ---
 
-### Payload Generation
+## Payload Generation
 
 ### revshell.sh
 **Multi-language reverse shell payload generator**
@@ -218,7 +266,7 @@ revshell 10.10.14.5 4444
 
 ---
 
-### Utilities
+## Utilities
 
 ### gh-raw-dl.sh
 **Download files and folders from GitHub without cloning**
