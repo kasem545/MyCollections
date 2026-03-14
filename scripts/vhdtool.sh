@@ -332,17 +332,13 @@ check_dependencies() {
     done
 }
 
-require_root() {
-    ((EUID == 0)) || die "This command requires root privileges. Use: sudo ${SCRIPT_NAME} $*"
-}
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  CORE COMMANDS
 # ══════════════════════════════════════════════════════════════════════════════
 
 cmd_install() {
-    require_root "install"
-    
     log_section "Installing Dependencies"
     
     if command -v apt-get &>/dev/null; then
@@ -423,7 +419,6 @@ cmd_mount() {
         esac
     done
     
-    require_root "mount"
     check_dependencies
     state_init
     
@@ -551,8 +546,6 @@ cmd_mount_help() {
 cmd_umount() {
     local mountpoint="${1:-}"
     
-    require_root "umount"
-    
     [[ -n "$mountpoint" ]] || die "Usage: ${SCRIPT_NAME} umount <mountpoint>"
     
     mountpoint=$(realpath -m "$mountpoint")
@@ -600,7 +593,6 @@ cmd_umount() {
 }
 
 cmd_status() {
-    require_root "status"
     state_init
     
     log_section "VHDTool Status"
@@ -654,7 +646,6 @@ cmd_status() {
 }
 
 cmd_list() {
-    require_root "list"
     state_init
     
     local has_mounts=false
@@ -757,9 +748,22 @@ usage() {
 #  MAIN DISPATCH
 # ══════════════════════════════════════════════════════════════════════════════
 
+require_root_for() {
+    local cmd="$1"
+    case "$cmd" in
+        mount|umount|unmount|list|ls|status|install)
+            if ((EUID != 0)); then
+                die "Command '$cmd' requires root privileges. Use: sudo ${SCRIPT_NAME} $cmd"
+            fi
+            ;;
+    esac
+}
+
 main() {
     local cmd="${1:-help}"
     shift || true
+    
+    require_root_for "$cmd"
     
     case "$cmd" in
         mount)                     cmd_mount "$@" ;;
