@@ -279,6 +279,9 @@ install_python_tools() {
     "git+https://github.com/shellinvictus/GriffonAD.git"
     "git+https://github.com/p0dalirius/smbclient-ng.git"
     "git+https://github.com/kasem545/ntlm_theft.git"
+    "git+https://github.com/ly4k/Certipy.git"
+    "git+https://github.com/ihebski/DefaultCreds-cheat-sheet.git"
+    "git+https://github.com/blacklanternsecurity/MANSPIDER.git"
   )
 
   for pkg in "${py_tools[@]}"; do
@@ -445,6 +448,26 @@ install_spf() {
     warn "curl not present; cannot install SPF automatically."
   fi
 }
+
+install_syft_grype() {
+  info "Attempting Syft/Grype install via upstream script"
+  if ! command -v curl &>/dev/null; then
+    warn "curl not present; cannot install Syft/Grype automatically."
+    return 1
+  fi
+  if curl -sSfL https://get.anchore.io/syft | sudo sh -s -- -b /usr/local/bin; then
+    success "Syft installed"
+  else
+    warn "Syft install failed"
+  fi
+  if curl -sSfL https://get.anchore.io/grype | sudo sh -s -- -b /usr/local/bin; then
+    success "Grype installed"
+  else
+    warn "Grype install failed"
+  fi
+}
+
+
 
 font_packages_install() {
   local font_dir="${HOME}/.local/share/fonts"
@@ -660,6 +683,14 @@ main() {
   install_witr
   echo ""
   install_spf
+  echo ""
+  install_syft_grype
+  echo ""
+  install_java_8
+  echo ""
+  install_ysoserial_jar
+  echo ""
+  install_ysoserial_net
   echo ""
   install_oh_my_zsh
   echo ""

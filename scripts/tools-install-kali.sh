@@ -449,6 +449,26 @@ install_spf() {
   fi
 }
 
+install_syft_grype() {
+  info "Attempting Syft/Grype install via upstream script"
+  if ! command -v curl &>/dev/null; then
+    warn "curl not present; cannot install Syft/Grype automatically."
+    return 1
+  fi
+  if curl -sSfL https://get.anchore.io/syft | sudo sh -s -- -b /usr/local/bin; then
+    success "Syft installed"
+  else
+    warn "Syft install failed"
+  fi
+  if curl -sSfL https://get.anchore.io/grype | sudo sh -s -- -b /usr/local/bin; then
+    success "Grype installed"
+  else
+    warn "Grype install failed"
+  fi
+}
+
+
+
 font_packages_install() {
   local font_dir="${HOME}/.local/share/fonts"
   local tmp="/tmp/hack-nerd-font.zip"
@@ -636,43 +656,46 @@ EOF
 }
 
 # ========== MAIN ==========
+
 main() {
   info "Starting installer (pretty mode enabled)"
-  echo ""
+  echo
 
-  check_dependencies
-  echo ""
-  font_packages_install
-  echo ""
-  install_git_repos
-  echo ""
-  install_go_tools
-  echo ""
-  install_rust_tools
-  echo ""
-  install_python_tools
-  echo ""
-  exploitdb
-  echo ""
-  install_bloodhound
-  echo ""
-  install_ronin
-  echo ""
-  install_opengrep
-  echo ""
-  install_witr
-  echo ""
-  install_spf
-  echo ""
-  install_oh_my_zsh
-  echo ""
-  install_tmux_conf
-  echo ""
-  install_zshrc_template
-  echo ""
+  run_step() {
+    local label="$1"
+    local func="$2"
+
+    info "==> $label"
+    if declare -F "$func" >/dev/null; then
+      "$func"
+    else
+      warn "Function not found: $func"
+    fi
+    echo
+  }
+
+  run_step "Checking dependencies"          check_dependencies
+  run_step "Installing font packages"       font_packages_install
+  run_step "Installing Git repos"           install_git_repos
+  run_step "Installing Go tools"            install_go_tools
+  run_step "Installing Rust tools"          install_rust_tools
+  run_step "Installing Python tools"        install_python_tools
+  run_step "Installing ExploitDB"           exploitdb
+  run_step "Installing BloodHound"          install_bloodhound
+  run_step "Installing Ronin"               install_ronin
+  run_step "Installing OpenGrep"            install_opengrep
+  run_step "Installing WITR"                install_witr
+  run_step "Installing SPF"                 install_spf
+  run_step "Installing Syft/Grype"          install_syft_grype
+  run_step "Installing Java 8"             install_java_8
+  run_step "Installing ysoserial.jar"      install_ysoserial_jar
+  run_step "Installing ysoserial.net"      install_ysoserial_net
+  run_step "Installing Oh My Zsh"          install_oh_my_zsh
+  run_step "Installing tmux config"        install_tmux_conf
+  run_step "Installing zshrc template"     install_zshrc_template
 
   success "All done — repos + tools attempted. Inspect the output for any warnings."
-  info "Tips: Run this as a user with sudo privileges. Some installs (docker, go) may need manual follow-up."
+  info "Tips: Run this as a user with sudo privileges. Some installs may need manual follow-up."
   info "To use zsh as default shell, run: chsh -s \$(which zsh)"
 }
 
