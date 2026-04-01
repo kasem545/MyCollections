@@ -59,6 +59,7 @@ REPOS=(
   "https://github.com/danielmiessler/SecLists.git"
   "https://github.com/HavocFramework/Havoc.git"
   "https://github.com/Adaptix-Framework/AdaptixC2.git"
+  "https://github.com/Adaptix-Framework/Extension-Kit.git"
   "https://github.com/itm4n/PrivescCheck.git"
   "https://github.com/diego-treitos/linux-smart-enumeration.git"
   "https://github.com/ShutdownRepo/targetedKerberoast.git"
