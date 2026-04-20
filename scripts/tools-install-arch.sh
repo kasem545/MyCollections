@@ -53,6 +53,7 @@ REPOS=(
   "https://github.com/trickest/cve.git"
   "https://github.com/Flangvik/SharpCollection.git"
   "https://github.com/urbanadventurer/username-anarchy.git"
+  "https://github.com/nicocha30/ligolo-ng.git"
   "https://github.com/x90skysn3k/brutespray.git"
   "https://github.com/GerbenJavado/LinkFinder.git"
   "https://github.com/hakluke/hakrawler.git"
@@ -69,11 +70,12 @@ REPOS=(
   "https://github.com/semgrep/semgrep-rules.git"
   "https://github.com/nullsection/chisel-ng.git"
   "https://github.com/strayge/pylnk.git"
+  "https://github.com/nikaiw/VMkatz.git"
 )
 
 # Arch Linux package names (pacman)
 PACMAN_PACKAGES=(
-  curl wget gcc make base-devel fzf go python python-pip python-virtualenv
+  curl wget gcc make base-devel fzf fish fastfetch go python python-pip python-virtualenv
   python-pipx parallel jq unzip git docker docker-compose rust zsh tmux lsd
 )
 
@@ -523,6 +525,24 @@ install_spf() {
   fi
 }
 
+install_syft_grype() {
+  info "Attempting Syft/Grype install via upstream script"
+  if ! command -v curl &>/dev/null; then
+    warn "curl not present; cannot install Syft/Grype automatically."
+    return 1
+  fi
+  if curl -sSfL https://get.anchore.io/syft | sudo sh -s -- -b /usr/local/bin; then
+    success "Syft installed"
+  else
+    warn "Syft install failed"
+  fi
+  if curl -sSfL https://get.anchore.io/grype | sudo sh -s -- -b /usr/local/bin; then
+    success "Grype installed"
+  else
+    warn "Grype install failed"
+  fi
+}
+
 font_packages_install() {
   local font_dir="${HOME}/.local/share/fonts"
   local tmp="/tmp/hack-nerd-font.zip"
@@ -887,6 +907,8 @@ main() {
   install_witr
   echo ""
   install_spf
+  echo ""
+  install_syft_grype
   echo ""
   install_tmux_conf
   echo ""
