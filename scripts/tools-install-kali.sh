@@ -286,6 +286,7 @@ install_python_tools() {
     "git+https://github.com/blacklanternsecurity/MANSPIDER.git"
     "git+https://github.com/the-useless-one/pywerview.git"
     "git+https://github.com/0x0Trace/certihound.git"
+    "git+https://github.com/xaitax/SploitScan"
   )
 
   for pkg in "${py_tools[@]}"; do
