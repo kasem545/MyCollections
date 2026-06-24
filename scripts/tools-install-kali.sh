@@ -74,6 +74,8 @@ REPOS=(
   "https://github.com/nullsection/chisel-ng.git"
   "https://github.com/strayge/pylnk.git"
   "https://github.com/nikaiw/VMkatz.git"
+  "https://git.smukx.site/smukx/RustyPacker.git"
+  "https://git.smukx.site/smukx/DumpBrowserSecrets-rs"
 )
 
 APT_PACKAGES=(curl wget gcc make build-essential fzf fish fastfetch lsd golang-go python3 python3-pip python3-venv pipx parallel jq unzip git docker.io docker-compose cargo zsh tmux ligolo-mp)
