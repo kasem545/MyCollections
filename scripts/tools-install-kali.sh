@@ -291,6 +291,7 @@ install_python_tools() {
     "git+https://github.com/xaitax/SploitScan.git"
     "git+https://github.com/CravateRouge/kerbad.git"
     "git+https://github.com/NetSPI/AD-PathFinder.git"
+    "git+https://github.com/santoru/shcheck.git"
   )
 
   for pkg in "${py_tools[@]}"; do
