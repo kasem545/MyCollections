@@ -1,239 +1,683 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash
+#
+# git-raw-dl.sh
+# Universal Git Downloader
+# Version: 2.1.0
+#
+# Usage:
+#   ./git-raw-dl.sh URL
+#   ./git-raw-dl.sh --file URL
+#   ./git-raw-dl.sh --folder URL
+#   ./git-raw-dl.sh --repo URL
+#
+# SUPPORTED PLATFORMS:
+#    GitHub
+#    GitLab
+#    Bitbucket
+#    Gitea
+#    Forgejo
+#    Codeberg
+#    SourceHut
+#    GitHub Enterprise
+#    GitLab Self-Managed
+#    Custom Git servers
 
-""" 
-Advanced GitHub downloader that fetches files or entire directories by URL, 
-supports branches/tags/commits, handles private repos via token, recursively mirrors folders
 
-Usage: 
 
-    # Download a single file from a repository:
-        gh-raw-dl.sh https://github.com/USER/REPO/blob/master/path/to/file.exe
-    
-    # Save a file with a custom output name:
-        gh-raw-dl.sh -o myfile.bin https://github.com/USER/REPO/blob/dev/build/output.bin
-    
-    # Download an entire folder recursively:
-        gh-raw-dl.sh  https://github.com/USER/REPO/tree/main/tools
-"""
+set -Eeuo pipefail
+IFS=$'\n\t'
 
-set -euo pipefail
+VERSION="2.1.0"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
+MODE="auto"
+OUTPUT=""
+REF_OVERRIDE=""
+TOKEN="${GIT_TOKEN:-}"
+CHECKSUM=""
 DEBUG=0
-USE_CURL=0
-GH_API="https://api.github.com"
-GH_TOKEN="${GH_TOKEN:-}"
+KEEP_TEMP=0
+FORCE=0
 
-log() { echo -e "${BLUE}[INFO]${NC} $*"; }
-debug() { [[ $DEBUG -eq 1 ]] && echo -e "${YELLOW}[DEBUG]${NC} $*" >&2 || true; }
-warn() { echo -e "${YELLOW}[WARN]${NC} $*" >&2; }
-error() { echo -e "${RED}[ERROR]${NC} $*" >&2; exit 1; }
-success() { echo -e "${GREEN}[SUCCESS]${NC} $*"; }
+HOST=""
+REPO_PATH=""
+REPO_NAME=""
+CLONE_URL=""
+URL_TYPE="repo"
+REF=""
+TARGET_PATH=""
+PROVIDER="generic"
 
-check_deps() {
-    if command -v wget >/dev/null; then USE_CURL=0; else USE_CURL=1; fi
+TMPDIR_GIT=""
+GIT_AUTH_ARGS=()
+
+# --------------------------------------------------
+# LOGGING
+# --------------------------------------------------
+
+log() {
+    printf "${BLUE}[INFO]${NC} %s\n" "$*"
 }
 
-parse_github_url() {
-    local url="$1"
-    debug "Parsing URL: $url"
-
-    if [[ ! "$url" =~ ^https://github\.com/([^/]+)/([^/]+)/(blob|tree)/([^/]+)/(.+)$ ]]; then
-        error "Invalid GitHub URL. Must be: https://github.com/user/repo/blob|tree/REF/path"
-    fi
-
-    local owner="${BASH_REMATCH[1]}"
-    local repo="${BASH_REMATCH[2]}"
-    local type="${BASH_REMATCH[3]}"
-    local ref="${BASH_REMATCH[4]}"
-    local path="${BASH_REMATCH[5]}"
-
-    if [[ "$type" == "tree" ]]; then
-        local basename="${path##*/}"
-
-        case "$basename" in
-            *.exe|*.dll|*.bin|*.ps1|*.bat|*.sh|*.txt|*.xml|*.config|*.json|*.yml|*.yaml|*.zip|*.msi|*.js)
-                debug "Heuristic: '$basename' matches known file extension. Forcing 'blob' mode."
-                type="blob"
-                ;;
-            *)
-                debug "Heuristic: '$basename' does not look like a file. Keeping 'tree' mode."
-                ;;
-        esac
-    fi
-
-    debug "Parsed → owner='$owner', repo='$repo', type='$type', ref='$ref', path='$path'"
-    echo "$owner|$repo|$type|$ref|$path"
+success() {
+    printf "${GREEN}[SUCCESS]${NC} %s\n" "$*"
 }
 
-gh_api_get() {
-    local url="$1"
-    local hdr=()
-    [[ -n "$GH_TOKEN" ]] && hdr+=("-H" "Authorization: token $GH_TOKEN")
-    if (( USE_CURL )); then
-        curl -s --fail "${hdr[@]}" "$url"
-    else
-        wget -q "${hdr[@]/#/--header=}" -O - "$url"
+warn() {
+    printf "${YELLOW}[WARN]${NC} %s\n" "$*" >&2
+}
+
+error() {
+    printf "${RED}[ERROR]${NC} %s\n" "$*" >&2
+    exit 1
+}
+
+debug() {
+    if (( DEBUG )); then
+        printf "${CYAN}[DEBUG]${NC} %s\n" "$*" >&2
     fi
 }
 
-download_raw_file() {
-    local url="$1" out="$2"
-    if (( USE_CURL )); then
-        curl -fL# -o "$out" "$url" || error "Download failed: $url"
-    else
-        wget -q -c --progress=bar -O "$out" "$url" || error "Download failed: $url"
-    fi
-}
+# --------------------------------------------------
+# HELP
+# --------------------------------------------------
 
-verify_hash() {
-    local f="$1" h="$2"
-    [[ -z "$h" ]] && return 0
-    local actual
-    if command -v sha256sum >/dev/null; then
-        actual=$(sha256sum "$f" | cut -d' ' -f1)
-    elif command -v shasum >/dev/null; then
-        actual=$(shasum -a 256 "$f" | cut -d' ' -f1)
-    else
-        warn "No hash tool. Skipping."
-        return 0
-    fi
-    [[ "$actual" == "$h" ]] && success "Checksum OK." || error "Hash mismatch!"
-}
-
-download_folder() {
-    local owner="$1" repo="$2" ref="$3" path="$4" outdir="$5"
-    local api="$GH_API/repos/$owner/$repo/contents/$path?ref=$ref"
-    debug "API: $api"
-    log "Fetching contents from: $path"
-
-    local res
-    res=$(gh_api_get "$api") || error "API call failed (404? rate limit?)"
-
-    if ! command -v jq >/dev/null; then
-        error "Install 'jq' to download folders."
-    fi
-
-    # Check if response is an error message
-    if echo "$res" | jq -e '.message' >/dev/null 2>&1; then
-        local msg=$(echo "$res" | jq -r '.message')
-        error "GitHub API error: $msg"
-    fi
-
-    local files dirs
-    files=$(echo "$res" | jq -r '.[] | select(.type=="file") | "\(.path)|\(.name)|\(.download_url)"' 2>/dev/null || true)
-    dirs=$(echo "$res" | jq -r '.[] | select(.type=="dir") | .path' 2>/dev/null || true)
-
-    debug "Files found: $(echo "$files" | wc -l)"
-    debug "Dirs found: $(echo "$dirs" | wc -l)"
-
-    if [[ -n "$files" ]]; then
-        while IFS='|' read -r fpath fname download_url; do
-            [[ -z "$fpath" ]] && continue
-            local local_rel="${fpath#${path}/}"
-            [[ "$local_rel" == "$fpath" ]] && local_rel="$fname"
-            local local_file="$outdir/$local_rel"
-            mkdir -p "$(dirname "$local_file")"
-            
-            local raw_url="$download_url"
-            if [[ -z "$raw_url" || "$raw_url" == "null" ]]; then
-                raw_url="https://raw.githubusercontent.com/$owner/$repo/$ref/$fpath"
-            fi
-            
-            log "→ Downloading: $fname"
-            debug "  Path: $fpath"
-            debug "  URL: $raw_url"
-            debug "  Local: $local_file"
-            download_raw_file "$raw_url" "$local_file"
-        done <<< "$files"
-    else
-        debug "No files to download in this directory"
-    fi
-
-    if [[ -n "$dirs" ]]; then
-        while IFS= read -r d; do
-            [[ -z "$d" ]] && continue
-            local subdir="${d##*/}"
-            log "→ Entering directory: $subdir/"
-            mkdir -p "$outdir/$subdir"
-            download_folder "$owner" "$repo" "$ref" "$d" "$outdir/$subdir"
-        done <<< "$dirs"
-    else
-        debug "No subdirectories to process"
-    fi
-}
-
-show_help() {
+usage() {
     cat <<EOF
-Usage: $0 [OPTIONS] <GITHUB_URL>
+Universal Git Downloader v$VERSION
 
-Supports:
-  File:  https://github.com/user/repo/blob/master/path/file
-  Folder:https://github.com/user/repo/tree/master/path/dir
+USAGE:
+    $0 [OPTIONS] URL
 
-Uses raw URLs in format:
-  https://raw.githubusercontent.com/user/repo/master/...
+DOWNLOAD MODES:
+    --auto              Automatically detect URL type (default)
+    --file              Download a single file
+    --folder            Download a directory recursively
+    --repo              Download entire repository
 
 OPTIONS:
-  -o, --output PATH       Output file or directory
-  -c, --checksum HASH     Verify SHA256 (files only)
-  --debug                 Enable debug mode
-  -h, --help              Show help
+    -o, --output PATH   Output file or directory
+    -r, --ref REF       Branch, tag or commit hash
+    -t, --token TOKEN   Git access token
+    -c, --checksum HASH Verify SHA256
+        --force         Overwrite existing output
+        --keep-temp     Keep temporary clone
+        --debug         Enable debug output
+    -h, --help          Show help
 
-ENV:
-  GH_TOKEN                Optional GitHub token
+ENVIRONMENT:
+    GIT_TOKEN           Default access token
 
-EXAMPLE:
-  $0 https://github.com/USER/REPO/blob/master/FOLDER/file.exe
-  $0 https://github.com/USER/REPO/tree/master/FOLDER
+EXAMPLES:
+
+    # Repository
+    $0 https://github.com/user/repo
+
+    # Directory
+    $0 https://github.com/user/repo/tree/main/tools
+
+    # File
+    $0 https://github.com/user/repo/blob/main/tools/install.sh
+
+    # GitLab nested groups
+    $0 https://gitlab.com/group/subgroup/project/-/tree/main/src
+
+    # Bitbucket
+    $0 https://bitbucket.org/workspace/repo/src/main/tools
+
+    # Gitea / Forgejo / Codeberg
+    $0 https://codeberg.org/user/repo/src/branch/main/tools
+
+    # Private repository
+    $0 --token TOKEN https://github.com/user/private-repo
+
+    # Custom branch
+    $0 --ref develop --repo https://github.com/user/repo
+
+    # Custom output
+    $0 -o ./downloads/tools URL
+
+    # SHA256 verification
+    $0 -c SHA256 URL
 
 EOF
 }
 
-main() {
-    local out="" hash="" url=""
+# --------------------------------------------------
+# DEPENDENCIES
+# --------------------------------------------------
 
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            -o|--output) out="$2"; shift 2 ;;
-            -c|--checksum) hash="$2"; shift 2 ;;
-            --debug) DEBUG=1; shift ;;
-            -h|--help) show_help; exit 0 ;;
-            -*) error "Unknown flag: $1" ;;
-            *) [[ -n "$url" ]] && error "Only one URL allowed"; url="$1"; shift ;;
+check_dependencies() {
+    command -v git >/dev/null 2>&1 ||
+        error "Git is required."
+
+    command -v curl >/dev/null 2>&1 ||
+        error "curl is required."
+
+    if ! command -v sha256sum >/dev/null 2>&1 &&
+       ! command -v shasum >/dev/null 2>&1; then
+        error "sha256sum or shasum is required."
+    fi
+
+    export GIT_TERMINAL_PROMPT=0
+    export GIT_LFS_SKIP_SMUDGE=1
+}
+
+# --------------------------------------------------
+# CLEANUP
+# --------------------------------------------------
+
+cleanup() {
+    if [[ -n "$TMPDIR_GIT" &&
+          -d "$TMPDIR_GIT" &&
+          "$KEEP_TEMP" -eq 0 ]]; then
+
+        rm -rf -- "$TMPDIR_GIT"
+    fi
+}
+
+trap cleanup EXIT
+
+# --------------------------------------------------
+# URL PARSER
+# --------------------------------------------------
+
+
+decode_url_path() {
+    python3 -c 'import sys, urllib.parse; print(urllib.parse.unquote(sys.argv[1]))' "$1"
+}
+
+parse_url() {
+    local input="$1"
+    local rest
+
+    [[ "$input" =~ ^https?://([^/]+)/(.+)$ ]] ||
+        error "Invalid repository URL"
+
+    HOST="${BASH_REMATCH[1]}"
+    rest="${BASH_REMATCH[2]}"
+
+    rest="${rest%%\?*}"
+    rest="${rest%%\#*}"
+    rest="${rest%/}"
+
+    PROVIDER="generic"
+    URL_TYPE="repo"
+    REF=""
+    TARGET_PATH=""
+
+    # GitLab
+    if [[ "$rest" =~ ^(.+)/-/((blob|tree))/([^/]+)/(.*)$ ]]; then
+        REPO_PATH="${BASH_REMATCH[1]}"
+        URL_TYPE="${BASH_REMATCH[2]}"
+        REF="${BASH_REMATCH[4]}"
+        TARGET_PATH="${BASH_REMATCH[5]}"
+        PROVIDER="gitlab"
+
+    # Gitea / Forgejo: branch URLs
+    elif [[ "$rest" =~ ^(.+)/src/branch/([^/]+)/(.*)$ ]]; then
+        REPO_PATH="${BASH_REMATCH[1]}"
+        REF="${BASH_REMATCH[2]}"
+        TARGET_PATH="${BASH_REMATCH[3]}"
+        URL_TYPE="tree"
+        PROVIDER="gitea"
+
+    # Gitea / Forgejo: commit URLs
+    elif [[ "$rest" =~ ^(.+)/src/commit/([^/]+)/(.*)$ ]]; then
+        REPO_PATH="${BASH_REMATCH[1]}"
+        REF="${BASH_REMATCH[2]}"
+        TARGET_PATH="${BASH_REMATCH[3]}"
+        URL_TYPE="tree"
+        PROVIDER="gitea"
+
+    # Bitbucket
+    elif [[ "$rest" =~ ^([^/]+)/([^/]+)/src/([^/]+)/(.*)$ ]]; then
+        REPO_PATH="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+        REF="${BASH_REMATCH[3]}"
+        TARGET_PATH="${BASH_REMATCH[4]}"
+        URL_TYPE="tree"
+        PROVIDER="bitbucket"
+
+    # GitHub
+    elif [[ "$rest" =~ ^([^/]+)/([^/]+)/(blob|tree)/([^/]+)/(.*)$ ]]; then
+        REPO_PATH="${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+        URL_TYPE="${BASH_REMATCH[3]}"
+        REF="${BASH_REMATCH[4]}"
+        TARGET_PATH="${BASH_REMATCH[5]}"
+        PROVIDER="github"
+
+    # Generic repository
+    else
+        REPO_PATH="${rest%.git}"
+        URL_TYPE="repo"
+    fi
+
+    REPO_NAME="${REPO_PATH##*/}"
+    REPO_NAME="${REPO_NAME%.git}"
+
+    case "$HOST" in
+        github.com) PROVIDER="github" ;;
+        gitlab.com) PROVIDER="gitlab" ;;
+        bitbucket.org) PROVIDER="bitbucket" ;;
+        codeberg.org) PROVIDER="forgejo" ;;
+        git.sr.ht) PROVIDER="sourcehut" ;;
+    esac
+
+    # Decode URL-encoded file and directory names.
+    TARGET_PATH="$(decode_url_path "$TARGET_PATH")"
+
+    # Detect individual files.
+    if [[ "$URL_TYPE" == "tree" ]]; then
+        local basename="${TARGET_PATH##*/}"
+
+        case "$basename" in
+            *.*)
+                URL_TYPE="blob"
+                ;;
         esac
-    done
+    fi
 
-    [[ -z "$url" ]] && error "Missing URL"
+    CLONE_URL="https://${HOST}/${REPO_PATH}.git"
 
-    check_deps
-    IFS='|' read -r user repo type ref path <<< "$(parse_github_url "$url")"
+    [[ "$PROVIDER" == "sourcehut" ]] &&
+        CLONE_URL="https://${HOST}/${REPO_PATH}"
 
-    if [[ "$type" == "blob" ]]; then
-        out="${out:-${path##*/}}"
-        local raw="https://raw.githubusercontent.com/$user/$repo/$ref/$path"
-        log "Downloading file (ref: $ref)"
-        debug "Raw URL: $raw"
-        download_raw_file "$raw" "$out"
-        verify_hash "$out" "$hash"
-        success "Saved: ./$out"
+    [[ -n "$REF_OVERRIDE" ]] && REF="$REF_OVERRIDE"
 
-    elif [[ "$type" == "tree" ]]; then
-        [[ -n "$hash" ]] && warn "Checksum ignored for folders"
-        out="${out:-${path##*/}}"
-        log "Downloading folder (ref: $ref)"
-        mkdir -p "$out"
-        download_folder "$user" "$repo" "$ref" "$path" "$out"
-        success "Folder saved to: $(pwd)/$out"
+    debug "Host: $HOST"
+    debug "Provider: $PROVIDER"
+    debug "Repository: $REPO_PATH"
+    debug "Clone URL: $CLONE_URL"
+    debug "Type: $URL_TYPE"
+    debug "Ref: $REF"
+    debug "Path: $TARGET_PATH"
+}
+
+
+# --------------------------------------------------
+# AUTHENTICATION
+# --------------------------------------------------
+
+git_auth() {
+    [[ -z "$TOKEN" ]] && return 0
+
+    local username="git"
+    local encoded
+
+    case "$PROVIDER" in
+        github)
+            username="x-access-token"
+            ;;
+        gitlab)
+            username="oauth2"
+            ;;
+        bitbucket)
+            username="x-token-auth"
+            ;;
+        *)
+            username="git"
+            ;;
+    esac
+
+    encoded="$(
+        printf '%s:%s' "$username" "$TOKEN" |
+        base64 |
+        tr -d '\n'
+    )"
+
+    GIT_AUTH_ARGS=(
+        -c "http.extraheader=AUTHORIZATION: basic $encoded"
+    )
+}
+
+run_git() {
+    git "${GIT_AUTH_ARGS[@]}" "$@"
+}
+
+# --------------------------------------------------
+# OUTPUT HANDLING
+# --------------------------------------------------
+
+check_output() {
+    local path="$1"
+
+    if [[ -e "$path" && "$FORCE" -eq 0 ]]; then
+        error "Output already exists: $path (use --force)"
+    fi
+
+    if [[ -e "$path" && "$FORCE" -eq 1 ]]; then
+
+        if [[ -d "$path" && ! -L "$path" ]]; then
+            rm -rf -- "$path"
+        else
+            rm -f -- "$path"
+        fi
+
+    fi
+}
+
+# --------------------------------------------------
+# REPOSITORY CLONING
+# --------------------------------------------------
+
+clone_repository() {
+    local destination="$1"
+    local ref="${2:-}"
+    local sparse_path="${3:-}"
+
+    local args=(
+        clone
+        --no-tags
+        --filter=blob:none
+        --no-checkout
+    )
+
+    if [[ -n "$ref" &&
+          ! "$ref" =~ ^[0-9a-fA-F]{7,64}$ ]]; then
+
+        args+=(--branch "$ref" --depth 1)
+
+    fi
+
+    log "Connecting to $HOST..."
+    log "Fetching repository metadata..."
+
+    run_git "${args[@]}" -- "$CLONE_URL" "$destination" ||
+        error "Unable to clone repository. Check URL and credentials."
+
+    if [[ -n "$sparse_path" ]]; then
+
+        log "Enabling sparse checkout..."
+
+        git -C "$destination" sparse-checkout init --cone ||
+            error "Sparse checkout initialization failed."
+
+        git -C "$destination" sparse-checkout set -- "$sparse_path" ||
+            error "Unable to configure sparse checkout."
+
+    fi
+
+    if [[ -n "$ref" ]]; then
+
+        log "Checking out ref: $ref"
+
+        run_git -C "$destination" checkout --detach "$ref" ||
+            error "Unable to checkout ref: $ref"
 
     else
-        error "Unknown type: $type"
+
+        run_git -C "$destination" checkout ||
+            error "Unable to checkout default branch."
+
     fi
+}
+
+# --------------------------------------------------
+# CHECKSUM
+# --------------------------------------------------
+
+verify_checksum() {
+    local file="$1"
+
+    [[ -z "$CHECKSUM" ]] && return 0
+
+    local actual
+
+    if command -v sha256sum >/dev/null 2>&1; then
+
+        actual="$(sha256sum "$file" | awk '{print $1}')"
+
+    else
+
+        actual="$(shasum -a 256 "$file" | awk '{print $1}')"
+
+    fi
+
+    if [[ "${actual,,}" != "${CHECKSUM,,}" ]]; then
+        error "SHA256 verification failed."
+    fi
+
+    success "SHA256 verified."
+}
+
+# --------------------------------------------------
+# DOWNLOAD FILE
+# --------------------------------------------------
+
+download_file() {
+    [[ -n "$TARGET_PATH" ]] ||
+        error "No file path found."
+
+    local destination="${OUTPUT:-${TARGET_PATH##*/}}"
+    local sparse_dir
+
+    sparse_dir="$(dirname "$TARGET_PATH")"
+
+    [[ "$sparse_dir" == "." ]] && sparse_dir=""
+
+    check_output "$destination"
+
+    mkdir -p "$(dirname "$destination")"
+
+    TMPDIR_GIT="$(mktemp -d)"
+
+    local repo="$TMPDIR_GIT/repo"
+
+    clone_repository "$repo" "$REF" "$sparse_dir"
+
+    local source="$repo/$TARGET_PATH"
+
+    [[ -f "$source" ]] ||
+        error "File not found: $TARGET_PATH"
+
+    cp -- "$source" "$destination"
+
+    verify_checksum "$destination"
+
+    success "Downloaded: $destination"
+}
+
+# --------------------------------------------------
+# DOWNLOAD FOLDER
+# --------------------------------------------------
+
+download_folder() {
+    [[ -n "$TARGET_PATH" ]] ||
+        error "No directory path found."
+
+    local destination="${OUTPUT:-${TARGET_PATH##*/}}"
+
+    check_output "$destination"
+
+    TMPDIR_GIT="$(mktemp -d)"
+
+    local repo="$TMPDIR_GIT/repo"
+
+    clone_repository "$repo" "$REF" "$TARGET_PATH"
+
+    local source="$repo/$TARGET_PATH"
+
+    [[ -d "$source" ]] ||
+        error "Directory not found: $TARGET_PATH"
+
+    mkdir -p "$destination"
+
+    log "Copying directory recursively..."
+
+    cp -a "$source/." "$destination/"
+
+    success "Directory downloaded: $destination"
+}
+
+# --------------------------------------------------
+# DOWNLOAD REPOSITORY
+# --------------------------------------------------
+
+download_repo() {
+    local destination="${OUTPUT:-$REPO_NAME}"
+
+    check_output "$destination"
+
+    local args=(
+        clone
+        --filter=blob:none
+    )
+
+    if [[ -n "$REF" ]]; then
+        args+=(--branch "$REF")
+    fi
+
+    log "Downloading repository: $REPO_NAME"
+
+    run_git "${args[@]}" -- "$CLONE_URL" "$destination" ||
+        error "Repository download failed."
+
+    success "Repository saved: $destination"
+}
+
+# --------------------------------------------------
+# MAIN
+# --------------------------------------------------
+
+main() {
+    local url=""
+
+    while (($#)); do
+
+        case "$1" in
+
+            -o|--output)
+                (($# >= 2)) || error "Missing output path."
+                OUTPUT="$2"
+                shift 2
+                ;;
+
+            -r|--ref|--branch)
+                (($# >= 2)) || error "Missing ref."
+                REF_OVERRIDE="$2"
+                shift 2
+                ;;
+
+            -t|--token)
+                (($# >= 2)) || error "Missing token."
+                TOKEN="$2"
+                shift 2
+                ;;
+
+            -c|--checksum)
+                (($# >= 2)) || error "Missing checksum."
+                CHECKSUM="$2"
+                shift 2
+                ;;
+
+            --file)
+                MODE="file"
+                shift
+                ;;
+
+            --folder)
+                MODE="folder"
+                shift
+                ;;
+
+            --repo)
+                MODE="repo"
+                shift
+                ;;
+
+            --auto)
+                MODE="auto"
+                shift
+                ;;
+
+            --force)
+                FORCE=1
+                shift
+                ;;
+
+            --keep-temp)
+                KEEP_TEMP=1
+                shift
+                ;;
+
+            --debug)
+                DEBUG=1
+                shift
+                ;;
+
+            -h|--help)
+                usage
+                exit 0
+                ;;
+
+            --)
+                shift
+                break
+                ;;
+
+            -*)
+                error "Unknown option: $1"
+                ;;
+
+            *)
+                [[ -z "$url" ]] ||
+                    error "Only one URL allowed."
+
+                url="$1"
+                shift
+                ;;
+
+        esac
+
+    done
+
+    [[ -n "$url" ]] || {
+        usage
+        exit 1
+    }
+
+    check_dependencies
+    parse_url "$url"
+    git_auth
+
+    if [[ "$MODE" == "auto" ]]; then
+
+        case "$URL_TYPE" in
+            blob) MODE="file" ;;
+            tree) MODE="folder" ;;
+            *) MODE="repo" ;;
+        esac
+
+    fi
+
+    log "Git provider: $PROVIDER"
+    log "Download mode: $MODE"
+
+    case "$MODE" in
+
+        file)
+            download_file
+            ;;
+
+        folder)
+            download_folder
+            ;;
+
+        repo)
+            download_repo
+            ;;
+
+        *)
+            error "Unknown download mode: $MODE"
+            ;;
+
+    esac
 }
 
 main "$@"
