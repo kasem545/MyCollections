@@ -1,0 +1,629 @@
+#!/usr/bin/env bash
+#
+# disk-cleaner - Debian/Ubuntu system cleanup: updates packages, clears caches
+# and temp files, trims the systemd journal, removes old kernels, and prunes docker
+
+set -e
+
+unalias rm 2>/dev/null || true
+unset -f rm 2>/dev/null || true
+
+trap 'echo "An error occurred. Exiting..." >&2; exit 1' ERR
+
+VERSION="1.2.0"
+
+# Configuration defaults
+LOG_FILE="/var/log/system_cleaner.log"
+ERROR_LOG="/var/log/system_cleaner_errors.log"
+MAX_LOG_SIZE=100
+BACKUP_LOGS=0
+
+# Operational flags
+DRY_RUN=0
+VERBOSE=0
+QUIET=0
+SKIP_UPGRADE=0
+SKIP_USER_CACHE=0
+SKIP_KERNELS=0
+SKIP_DOCKER=0
+SKIP_JOURNAL=0
+DOCKER_VOLUMES=0
+DOCKER_ALL=0
+FAILURES=0
+
+# Interactive / TTY detection
+IS_TTY=0
+if [[ -t 1 && -t 2 ]]; then
+    IS_TTY=1
+fi
+
+# Terminal colors
+if [[ $IS_TTY -eq 1 ]]; then
+    COLOR_RED="\e[31m"
+    COLOR_GREEN="\e[32m"
+    COLOR_YELLOW="\e[33m"
+    COLOR_CYAN="\e[36m"
+    COLOR_RESET="\e[0m"
+else
+    COLOR_RED=""
+    COLOR_GREEN=""
+    COLOR_YELLOW=""
+    COLOR_CYAN=""
+    COLOR_RESET=""
+fi
+
+log_message() {
+    local timestamp
+    timestamp=$(date "+%Y-%m-%d %H:%M:%S")
+    local user_info
+    user_info=$(whoami 2>/dev/null || echo "root")
+    if [[ $DRY_RUN -eq 0 ]]; then
+        echo "----------[ ${user_info} ${timestamp} ]---------- $1" 2>/dev/null >>"${LOG_FILE}" || true
+    fi
+    if [[ $QUIET -eq 0 && $VERBOSE -eq 1 ]]; then
+        echo -e "$1"
+    fi
+}
+
+error_message() {
+    local timestamp
+    timestamp=$(date "+%Y-%m-%d %H:%M:%S")
+    if [[ $DRY_RUN -eq 0 ]]; then
+        echo "ERROR [${timestamp}]: $1" 2>/dev/null >>"${ERROR_LOG}" || true
+    fi
+    if [[ $QUIET -eq 0 ]]; then
+        echo -e "${COLOR_RED}ERROR: $1${COLOR_RESET}" >&2
+    fi
+}
+
+record_failure() {
+    FAILURES=$((FAILURES+1))
+    error_message "$1"
+}
+
+info_message() {
+    if [[ $QUIET -eq 0 ]]; then
+        echo -e "$1"
+    fi
+}
+
+rotate_logs() {
+    [[ $DRY_RUN -eq 1 ]] && return 0
+    for logfile in "${LOG_FILE}" "${ERROR_LOG}"; do
+        if [[ -f "$logfile" ]]; then
+            local size
+            size=$(du -m "$logfile" 2>/dev/null | cut -f1)
+            if [[ -n "$size" && $size -gt $MAX_LOG_SIZE ]]; then
+                if [[ $BACKUP_LOGS -eq 1 ]]; then
+                    mv "$logfile" "${logfile}.$(date +%Y%m%d%H%M%S).old"
+                else
+                    : >"$logfile"
+                    log_message "Log file $logfile rotated (truncated)"
+                fi
+            fi
+        fi
+    done
+}
+
+check_command() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+show_spinner() {
+    local pid=$1
+    if [[ $QUIET -eq 1 || $IS_TTY -eq 0 ]]; then
+        wait "$pid"
+        return $?
+    fi
+
+    local delay=0.1
+    local spinstr="|/-\\"
+    echo -n "Processing "
+    while kill -0 "$pid" 2>/dev/null; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
+    done
+    local status=0
+    wait "$pid" || status=$?
+    echo "Finished (status: $status)"
+    return "$status"
+}
+
+clean_directory() {
+    local target_path=$1
+    local days=${2:-0}
+    local exclude=${3:-""}
+
+    [[ -d "$target_path" && ! -L "${target_path%/}" ]] || return 0
+
+    local -a find_args=("$target_path" "-mindepth" "1")
+    local -a directory_args=("$target_path" "-mindepth" "1" "-depth" "-type" "d")
+    local -a patterns=()
+    local pattern
+    IFS=',' read -r -a patterns <<<"$exclude"
+    for pattern in "${patterns[@]}"; do
+        find_args+=("(" "-name" "$pattern" "-o" "-path" "*/$pattern" ")" "-prune" "-o")
+        directory_args+=("!" "-name" "$pattern" "!" "-path" "*/$pattern" "!" "-path" "*/$pattern/*")
+    done
+    find_args+=("-type" "f")
+    if [[ $days -gt 0 ]]; then
+        find_args+=("-mtime" "+$days")
+    fi
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        local matches file_count dir_size
+        matches=$(find "${find_args[@]}" -printf '.' 2>/dev/null) || record_failure "dry-run scan failed for $target_path"
+        file_count=${#matches}
+        dir_size=$(du -sh "$target_path" 2>/dev/null | cut -f1)
+        info_message "${COLOR_YELLOW}[Dry-run]${COLOR_RESET} Would clean $file_count files in $target_path (retention: ${days}d; directory size estimate, not reclaimed space: ${dir_size:-0})"
+        return 0
+    fi
+
+    log_message "Cleaning $target_path (retention: ${days}d)..."
+    find "${find_args[@]}" -exec rm -f -- {} + || record_failure "file deletion failed in $target_path"
+    find "${directory_args[@]}" -empty -delete || record_failure "empty directory removal failed in $target_path"
+    log_message "Directory $target_path cleanup finished"
+}
+
+print_help() {
+    echo -e "${COLOR_CYAN}System Cleaner Script v${VERSION}${COLOR_RESET}"
+    echo "Usage: $0 [options]"
+    echo
+    echo "Options:"
+    echo "  --dry-run           Simulate actions without making changes"
+    echo "  --skip-upgrade      Skip system package updates and upgrades (apt update/upgrade)"
+    echo "  --skip-user-cache   Skip cleaning user directories (~/.cache, browser caches)"
+    echo "  --skip-kernels      Skip old kernel cleanup"
+    echo "  --skip-docker       Skip Docker cleanup"
+    echo "  --skip-journal      Skip systemd journal cleanup"
+    echo "  --docker-volumes    Prune unused Docker volumes (CAUTION: permanent data deletion)"
+    echo "  --docker-all        Prune all unused images, stopped containers, networks, and build cache"
+    echo "  -v, --verbose       Enable verbose output (off by default)"
+    echo "  --quiet             Mute console output completely (for background/cron jobs)"
+    echo "  --backup-logs       Backup log files instead of truncating them when rotating"
+    echo "  -h, --help          Show this help message"
+    echo
+    echo "Examples:"
+    echo "  $0 --dry-run                    # Simulate cleanup"
+    echo "  $0 --skip-upgrade               # Clean caches without upgrading packages"
+    echo "  $0 --skip-docker --quiet        # Clean system quietly without touching Docker"
+    echo "  $0 --docker-volumes             # Clean system including unused Docker volumes"
+    exit 0
+}
+
+# Parse command line arguments
+ORIGINAL_ARGS=("$@")
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+    --dry-run) DRY_RUN=1 ;;
+    --skip-upgrade) SKIP_UPGRADE=1 ;;
+    --skip-user-cache) SKIP_USER_CACHE=1 ;;
+    --skip-kernels) SKIP_KERNELS=1 ;;
+    --skip-docker) SKIP_DOCKER=1 ;;
+    --skip-journal) SKIP_JOURNAL=1 ;;
+    --docker-volumes) DOCKER_VOLUMES=1 ;;
+    --docker-all) DOCKER_ALL=1 ;;
+    -v|--verbose) VERBOSE=1 ;;
+    --quiet) QUIET=1; VERBOSE=0 ;;
+    --backup-logs) BACKUP_LOGS=1 ;;
+    -h|--help) print_help ;;
+    *)
+        echo "Unknown parameter: $1" >&2
+        echo "Use --help for usage information."
+        exit 1
+        ;;
+    esac
+    shift
+done
+
+# Root privilege check (unless --help was called)
+if [[ $EUID -ne 0 ]]; then
+    if ! command -v sudo >/dev/null 2>&1; then
+        echo -e "${COLOR_RED}sudo was not found; run this script as root.${COLOR_RESET}" >&2
+        exit 1
+    fi
+
+    # $0 is unreliable: it is "bash" when the script is piped in
+    # (bash < script.sh, bash -c "$(cat script.sh)"), and
+    # "sudo -- bash" would open an interactive root shell instead of
+    # running this script. BASH_SOURCE is only set for real script files.
+    SCRIPT_PATH=$(readlink -f -- "${BASH_SOURCE[0]:-}" 2>/dev/null) || SCRIPT_PATH=""
+    if [[ -z "$SCRIPT_PATH" || ! -f "$SCRIPT_PATH" ]]; then
+        echo -e "${COLOR_RED}Cannot determine this script's path (it appears to be piped into bash).${COLOR_RESET}" >&2
+        echo -e "Run it as a file instead, e.g.: sudo bash /path/to/disk-cleaner.sh [options]" >&2
+        exit 1
+    fi
+
+    info_message "Not running as root; re-invoking with sudo..."
+    exec sudo -- "$SCRIPT_PATH" "${ORIGINAL_ARGS[@]}"
+fi
+
+update_system() {
+    if [[ $SKIP_UPGRADE -eq 1 ]]; then
+        info_message "Skipping system package updates as requested (--skip-upgrade)."
+        return 0
+    fi
+
+    if ! check_command apt-get; then
+        log_message "apt-get not found. Skipping system update."
+        return 0
+    fi
+
+    log_message "Starting APT operations"
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        info_message "${COLOR_YELLOW}[Dry-run]${COLOR_RESET} Would run apt update, upgrade, full-upgrade, autoremove, autoclean"
+        return 0
+    fi
+
+    local tries=0
+    while ! apt-get update -qq; do
+        ((++tries))
+        if [[ $tries -ge 5 ]]; then
+            error_message "APT package database locked or network unavailable. Skipping update."
+            return 1
+        fi
+        info_message "APT locked, waiting..."
+        sleep 5
+    done
+
+    info_message "Upgrading packages..."
+    if [[ $VERBOSE -eq 1 ]]; then
+        DEBIAN_FRONTEND=noninteractive apt-get upgrade -y || record_failure "apt-get upgrade failed"
+    else
+        DEBIAN_FRONTEND=noninteractive apt-get upgrade -y &>/dev/null &
+        show_spinner $! || record_failure "apt-get upgrade failed"
+    fi
+
+    info_message "Performing full upgrade..."
+    if [[ $VERBOSE -eq 1 ]]; then
+        DEBIAN_FRONTEND=noninteractive apt-get full-upgrade -y || record_failure "apt-get full-upgrade failed"
+    else
+        DEBIAN_FRONTEND=noninteractive apt-get full-upgrade -y &>/dev/null &
+        show_spinner $! || record_failure "apt-get full-upgrade failed"
+    fi
+
+    info_message "Removing unused packages..."
+    if [[ $VERBOSE -eq 1 ]]; then
+        DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y || record_failure "apt-get autoremove failed"
+    else
+        DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y &>/dev/null &
+        show_spinner $! || record_failure "apt-get autoremove failed"
+    fi
+
+    info_message "Cleaning APT cache..."
+    if [[ $VERBOSE -eq 1 ]]; then
+        apt-get autoclean -y || record_failure "apt-get autoclean failed"
+    else
+        apt-get autoclean -y &>/dev/null &
+        show_spinner $! || record_failure "apt-get autoclean failed"
+    fi
+}
+
+perform_package_cleanup() {
+    log_message "Performing package cache cleanup"
+
+    if check_command apt-get; then
+        if [[ "$DRY_RUN" -eq 1 ]]; then
+            info_message "${COLOR_YELLOW}[Dry-run]${COLOR_RESET} Would clean apt archives cache"
+        else
+            info_message "Cleaning APT package cache..."
+            if [[ $VERBOSE -eq 1 ]]; then
+                apt-get clean -y || record_failure "apt-get clean failed"
+            else
+                apt-get clean -y &>/dev/null &
+                show_spinner $! || record_failure "apt-get clean failed"
+            fi
+        fi
+    fi
+
+    if check_command flatpak; then
+        if [[ "$DRY_RUN" -eq 1 ]]; then
+            info_message "${COLOR_YELLOW}[Dry-run]${COLOR_RESET} Would uninstall unused Flatpak runtimes and packages"
+        else
+            info_message "Cleaning Flatpak unused runtimes and packages..."
+            if [[ $VERBOSE -eq 1 ]]; then
+                flatpak uninstall --unused -y 2>/dev/null || record_failure "flatpak uninstall --unused failed"
+            else
+                flatpak uninstall --unused -y &>/dev/null &
+                show_spinner $! || record_failure "flatpak uninstall --unused failed"
+            fi
+        fi
+    fi
+
+    if check_command snap; then
+        if [[ "$DRY_RUN" -eq 1 ]]; then
+            info_message "${COLOR_YELLOW}[Dry-run]${COLOR_RESET} Would clean disabled Snap package revisions and retain settings"
+        else
+            info_message "Cleaning disabled Snap revisions..."
+            snap set system refresh.retain=2 2>/dev/null || record_failure "snap set refresh.retain=2 failed"
+            local disabled_snaps
+            disabled_snaps=$(set -o pipefail; snap list --all 2>/dev/null | awk '/disabled/{print $1, $3}') || record_failure "snap list --all failed"
+            if [[ -n "$disabled_snaps" ]]; then
+                while read -r snapname revision; do
+                    [[ -z "$snapname" || -z "$revision" ]] && continue
+                    info_message "Removing disabled snap: $snapname (revision $revision)"
+                    snap remove "$snapname" --revision="$revision" 2>/dev/null || record_failure "snap remove $snapname (rev $revision) failed"
+                done <<<"$disabled_snaps"
+            fi
+        fi
+    fi
+}
+
+perform_cleanup() {
+    log_message "Starting filesystem cleanup"
+
+    # Clean root development/tool caches
+    clean_directory "/root/.cache/pip" 30
+    clean_directory "/root/.npm" 30
+    clean_directory "/root/.composer/cache" 30
+    clean_directory "/root/.cache" 30
+
+    # Clean system temporary directories
+    clean_directory "/var/tmp" 7
+    clean_directory "/var/crash" 0
+    clean_directory "/tmp" 2
+
+    # User directory cleanup
+    if [[ $SKIP_USER_CACHE -eq 1 ]]; then
+        info_message "Skipping user home cache cleanup as requested (--skip-user-cache)."
+        return 0
+    fi
+
+    for user_home in /home/*; do
+        if [[ -d "$user_home" ]]; then
+            # Developer caches
+            clean_directory "$user_home/.cache/pip" 30
+            clean_directory "$user_home/.npm" 30
+            clean_directory "$user_home/.composer/cache" 30
+
+            # General caches
+            clean_directory "$user_home/.cache/thumbnails" 0
+            clean_directory "$user_home/.thumbnails" 30
+            clean_directory "$user_home/.cache" 30
+        fi
+    done
+}
+
+clean_browser_cache() {
+    if [[ $SKIP_USER_CACHE -eq 1 ]]; then
+        return 0
+    fi
+
+    log_message "Cleaning browser caches"
+
+    # Firefox cache (preserving cookies, sqlite databases, logins and preferences)
+    for profile_path in /home/*/.mozilla/firefox/*/; do
+        if [[ -d "$profile_path" ]]; then
+            clean_directory "${profile_path}cache2" 0
+            clean_directory "${profile_path}jumpListCache" 0
+            clean_directory "${profile_path}startupCache" 0
+        fi
+    done
+
+    # Chromium-based browser caches (Chrome, Chromium, Brave, Edge)
+    for user_home in /home/*; do
+        if [[ -d "$user_home" ]]; then
+            # Google Chrome
+            clean_directory "${user_home}/.config/google-chrome/Default/Cache" 0
+            clean_directory "${user_home}/.config/google-chrome/Default/Code Cache" 0
+            clean_directory "${user_home}/.config/google-chrome/Default/GPUCache" 0
+
+            # Chromium
+            clean_directory "${user_home}/.config/chromium/Default/Cache" 0
+            clean_directory "${user_home}/.config/chromium/Default/Code Cache" 0
+            clean_directory "${user_home}/.config/chromium/Default/GPUCache" 0
+
+            # Brave Browser
+            clean_directory "${user_home}/.config/BraveSoftware/Brave-Browser/Default/Cache" 0
+            clean_directory "${user_home}/.config/BraveSoftware/Brave-Browser/Default/Code Cache" 0
+            clean_directory "${user_home}/.config/BraveSoftware/Brave-Browser/Default/GPUCache" 0
+
+            # Microsoft Edge
+            clean_directory "${user_home}/.config/microsoft-edge/Default/Cache" 0
+            clean_directory "${user_home}/.config/microsoft-edge/Default/Code Cache" 0
+            clean_directory "${user_home}/.config/microsoft-edge/Default/GPUCache" 0
+        fi
+    done
+}
+
+clean_journal() {
+    if [[ "$SKIP_JOURNAL" -eq 1 ]]; then
+        info_message "Skipping systemd journal cleanup as per user request (--skip-journal)."
+        return 0
+    fi
+
+    if ! check_command journalctl; then
+        log_message "journalctl not found, skipping journal cleanup."
+        return 0
+    fi
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        info_message "${COLOR_YELLOW}[Dry-run]${COLOR_RESET} Would vacuum systemd journal (entries older than 14d and size > 500M)"
+    else
+        info_message "Vacuuming systemd journal..."
+        if [[ $VERBOSE -eq 1 ]]; then
+            info_message "Journal size before cleanup:"
+            journalctl --disk-usage 2>/dev/null || record_failure "journalctl --disk-usage failed (before)"
+            journalctl --vacuum-time=14d 2>/dev/null || record_failure "journalctl --vacuum-time=14d failed"
+            journalctl --vacuum-size=500M 2>/dev/null || record_failure "journalctl --vacuum-size=500M failed"
+            info_message "Journal size after cleanup:"
+            journalctl --disk-usage 2>/dev/null || record_failure "journalctl --disk-usage failed (after)"
+        else
+            journalctl --vacuum-time=14d &>/dev/null || record_failure "journalctl --vacuum-time=14d failed"
+            journalctl --vacuum-size=500M &>/dev/null || record_failure "journalctl --vacuum-size=500M failed"
+        fi
+    fi
+}
+
+clean_old_kernels() {
+    if [[ $SKIP_KERNELS -eq 1 ]]; then
+        info_message "Skipping kernel cleanup as requested (--skip-kernels)."
+        return 0
+    fi
+
+    if ! check_command dpkg; then
+        return 0
+    fi
+
+    info_message "Checking for obsolete kernels..."
+    local running_kernel
+    running_kernel=$(uname -r)
+
+    # Get all installed linux-image package names with version numbers
+    local installed_images
+    installed_images=$(dpkg -l | awk '/^ii  linux-image-[0-9]/ {print $2}' | sort -V)
+
+    if [[ -z "$installed_images" ]]; then
+        info_message "No kernel images managed via dpkg found."
+        return 0
+    fi
+
+    # Find the newest installed kernel (highest version)
+    local newest_installed_image
+    newest_installed_image=$(echo "$installed_images" | tail -n 1)
+
+    # Filter out kernels to remove
+    local kernels_to_remove=""
+    for pkg in $installed_images; do
+        # Always protect currently running kernel
+        if [[ "${pkg%%:*}" == "linux-image-$running_kernel" ]]; then
+            continue
+        fi
+        # Always protect the newest installed kernel image (preserves bootable kernel after upgrade without reboot)
+        if [[ "$pkg" == "$newest_installed_image" ]]; then
+            continue
+        fi
+        kernels_to_remove+="$pkg "
+    done
+
+    kernels_to_remove=$(echo "$kernels_to_remove" | xargs)
+
+    if [[ -z "$kernels_to_remove" ]]; then
+        info_message "No obsolete kernels found to remove. (Running: $running_kernel, Latest: $newest_installed_image)"
+        return 0
+    fi
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        info_message "${COLOR_YELLOW}[Dry-run]${COLOR_RESET} Would safely remove obsolete kernels: $kernels_to_remove"
+        info_message "${COLOR_YELLOW}[Dry-run]${COLOR_RESET} Protected kernels: Running ($running_kernel), Newest installed ($newest_installed_image)"
+    else
+        info_message "Removing obsolete kernels: $kernels_to_remove"
+        log_message "Purging obsolete kernels: $kernels_to_remove (Protected: $running_kernel, $newest_installed_image)"
+
+        # shellcheck disable=SC2086
+        if [[ $VERBOSE -eq 1 ]]; then
+            DEBIAN_FRONTEND=noninteractive apt-get purge -y $kernels_to_remove || { record_failure "apt-get purge of obsolete kernels failed"; DEBIAN_FRONTEND=noninteractive apt-get --fix-broken install -y || record_failure "apt-get --fix-broken install failed"; }
+            DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y || record_failure "apt-get autoremove after kernel purge failed"
+        else
+            DEBIAN_FRONTEND=noninteractive apt-get purge -y $kernels_to_remove &>/dev/null || record_failure "apt-get purge of obsolete kernels failed"
+            DEBIAN_FRONTEND=noninteractive apt-get autoremove --purge -y &>/dev/null || record_failure "apt-get autoremove after kernel purge failed"
+        fi
+    fi
+}
+
+clean_docker() {
+    if [[ "$SKIP_DOCKER" -eq 1 ]]; then
+        info_message "Skipping Docker cleanup as requested (--skip-docker)."
+        return 0
+    fi
+
+    if ! check_command docker; then
+        # Docker not installed: skip cleanly without warning or attempting install
+        return 0
+    fi
+
+    # Check if docker daemon is running
+    if ! docker info >/dev/null 2>&1; then
+        log_message "Docker daemon is not running, skipping Docker cleanup."
+        return 0
+    fi
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        info_message "${COLOR_YELLOW}[Dry-run]${COLOR_RESET} Would prune stopped containers, unused networks, and dangling images"
+        if [[ $DOCKER_ALL -eq 1 ]]; then
+            info_message "${COLOR_YELLOW}[Dry-run]${COLOR_RESET} Would prune ALL unreferenced Docker images (--docker-all)"
+        fi
+        if [[ $DOCKER_VOLUMES -eq 1 ]]; then
+            info_message "${COLOR_YELLOW}[Dry-run]${COLOR_RESET} Would prune unused Docker volumes (--docker-volumes)"
+        fi
+        return 0
+    fi
+
+    info_message "Cleaning Docker resources..."
+
+    if [[ $VERBOSE -eq 1 ]]; then
+        info_message "Docker disk usage before cleanup:"
+        docker system df 2>/dev/null || record_failure "docker system df failed (before)"
+    fi
+
+    # Standard safe cleanup
+    docker container prune -f >/dev/null 2>&1 || record_failure "docker container prune failed"
+    docker network prune -f >/dev/null 2>&1 || record_failure "docker network prune failed"
+
+    if [[ $DOCKER_ALL -eq 1 ]]; then
+        info_message "Pruning all unused Docker images (--docker-all)..."
+        docker image prune -a -f >/dev/null 2>&1 || record_failure "docker image prune -a failed"
+    else
+        info_message "Pruning dangling Docker images..."
+        docker image prune -f >/dev/null 2>&1 || record_failure "docker image prune failed"
+    fi
+
+    docker builder prune -f >/dev/null 2>&1 || record_failure "docker builder prune failed"
+
+    if [[ $DOCKER_VOLUMES -eq 1 ]]; then
+        info_message "${COLOR_YELLOW}Pruning unused Docker volumes (--docker-volumes)...${COLOR_RESET}"
+        docker volume prune -f >/dev/null 2>&1 || record_failure "docker volume prune failed"
+    fi
+
+    if [[ $VERBOSE -eq 1 ]]; then
+        info_message "Docker disk usage after cleanup:"
+        docker system df 2>/dev/null || record_failure "docker system df failed (after)"
+    fi
+}
+
+show_space_report() {
+    if [[ $QUIET -eq 1 ]]; then
+        return 0
+    fi
+
+    echo
+    echo -e "${COLOR_CYAN}====== Space Usage Report ======${COLOR_RESET}"
+    df -h / /home /var /tmp 2>/dev/null | column -t || df -h /
+    echo
+}
+
+main() {
+    rotate_logs
+
+    log_message "Clean GNU/Linux v${VERSION} starting (DryRun=${DRY_RUN}, SkipUpgrade=${SKIP_UPGRADE}, SkipUserCache=${SKIP_USER_CACHE})"
+
+    info_message "${COLOR_GREEN}Clean GNU/Linux v${VERSION} starting...${COLOR_RESET}"
+
+    update_system || record_failure "system update/upgrade stage failed"
+    perform_package_cleanup
+    perform_cleanup
+    clean_browser_cache
+    clean_journal
+    clean_old_kernels
+    clean_docker
+
+    if [[ $FAILURES -gt 0 ]]; then
+        error_message "Cleanup completed with $FAILURES failed operation(s)."
+        exit 1
+    fi
+
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        info_message "${COLOR_YELLOW}Dry-run completed. No changes were made.${COLOR_RESET}"
+    else
+        info_message "${COLOR_GREEN}System cleanup completed successfully.${COLOR_RESET}"
+        show_space_report
+    fi
+
+    log_message "Cleanup process completed"
+}
+
+main
